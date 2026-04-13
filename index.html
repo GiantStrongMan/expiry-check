@@ -2230,7 +2230,7 @@
             
             try {
                 // 获取房子信息
-                var houseResult = await supabase
+                var houseResult = await supabaseClient
                     .from('houses')
                     .select('*')
                     .eq('id', currentHouseId)
@@ -2252,7 +2252,7 @@
                 }
                 
                 // 获取成员信息
-                var membersResult = await supabase
+                var membersResult = await supabaseClient
                     .from('house_members')
                     .select('*')
                     .eq('house_id', currentHouseId);
@@ -2281,7 +2281,7 @@
         // 获取用户信息
         async function getUserProfile(userId) {
             try {
-                var result = await supabase
+                var result = await supabaseClient
                     .from('profiles')
                     .select('*')
                     .eq('id', userId)
@@ -2344,7 +2344,7 @@
                 expiresAt.setHours(expiresAt.getHours() + 24);
                 
                 // 尝试插入到 invite_codes 表
-                var result = await supabase
+                var result = await supabaseClient
                     .from('invite_codes')
                     .insert({
                         code: code,
@@ -2447,7 +2447,7 @@
             
             try {
                 // 先尝试从数据库查询
-                var inviteResult = await supabase
+                var inviteResult = await supabaseClient
                     .from('invite_codes')
                     .select('*')
                     .eq('code', code)
@@ -2479,7 +2479,7 @@
                 }
                 
                 // 检查是否已经是成员
-                var memberCheck = await supabase
+                var memberCheck = await supabaseClient
                     .from('house_members')
                     .select('*')
                     .eq('house_id', houseId)
@@ -2493,7 +2493,7 @@
                 }
                 
                 // 获取房子信息
-                var houseResult = await supabase
+                var houseResult = await supabaseClient
                     .from('houses')
                     .select('*')
                     .eq('id', houseId)
@@ -2506,7 +2506,7 @@
                 }
                 
                 // 加入 house_members 表
-                var joinResult = await supabase
+                var joinResult = await supabaseClient
                     .from('house_members')
                     .insert({
                         house_id: houseId,
@@ -2573,7 +2573,7 @@
             }
             
             try {
-                var result = await supabase
+                var result = await supabaseClient
                     .from('houses')
                     .insert({
                         user_id: currentUser.id,
@@ -2724,7 +2724,7 @@
             try {
                 // 获取用户创建的房子的 ID 列表
                 var ownedHouses = [];
-                var result = await supabase
+                var result = await supabaseClient
                     .from('houses')
                     .select('*')
                     .eq('user_id', currentUser.id)
@@ -2736,7 +2736,7 @@
                 
                 // 获取用户作为成员的房子
                 var memberHouses = [];
-                var memberResult = await supabase
+                var memberResult = await supabaseClient
                     .from('house_members')
                     .select('house_id')
                     .eq('user_id', currentUser.id);
@@ -2745,7 +2745,7 @@
                     var memberHouseIds = memberResult.data.map(function(m) { return m.house_id; });
                     
                     // 查询这些房子的详情
-                    var memberHouseResult = await supabase
+                    var memberHouseResult = await supabaseClient
                         .from('houses')
                         .select('*')
                         .in('id', memberHouseIds);
@@ -2791,7 +2791,7 @@
             if (!currentUser) return;
             
             try {
-                var result = await supabase
+                var result = await supabaseClient
                     .from('houses')
                     .insert({
                         user_id: currentUser.id,
@@ -2839,7 +2839,7 @@
             
             try {
                 // 获取云端数据
-                var cloudResult = await supabase
+                var cloudResult = await supabaseClient
                     .from('items')
                     .select('*')
                     .eq('house_id', currentHouseId);
@@ -2889,7 +2889,7 @@
             if (!currentUser || !currentHouseId) return;
             
             try {
-                var result = await supabase
+                var result = await supabaseClient
                     .from('items')
                     .select('*')
                     .eq('house_id', currentHouseId);
@@ -2954,7 +2954,7 @@
             
             try {
                 // 删除云端中不存在的项
-                var cloudResult = await supabase
+                var cloudResult = await supabaseClient
                     .from('items')
                     .select('local_id')
                     .eq('house_id', currentHouseId);
@@ -2981,7 +2981,7 @@
                             });
                         } else {
                             // 更新云端
-                            await supabase
+                            await supabaseClient
                                 .from('items')
                                 .update({
                                     name: item.name,
@@ -3009,7 +3009,7 @@
                             }
                         }
                         if (!exists) {
-                            await supabase
+                            await supabaseClient
                                 .from('items')
                                 .delete()
                                 .eq('house_id', currentHouseId)
