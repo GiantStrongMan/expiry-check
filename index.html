@@ -2576,7 +2576,7 @@
                 var result = await supabaseClient
                     .from('houses')
                     .insert({
-                        user_id: currentUser.id,
+                        owner_id: currentUser.id,
                         name: name
                     })
                     .select()
@@ -2727,7 +2727,7 @@
                 var result = await supabaseClient
                     .from('houses')
                     .select('*')
-                    .eq('user_id', currentUser.id)
+                    .eq('owner_id', currentUser.id)
                     .order('created_at', { ascending: true });
                 
                 if (result.error) throw result.error;
@@ -2794,7 +2794,7 @@
                 var result = await supabaseClient
                     .from('houses')
                     .insert({
-                        user_id: currentUser.id,
+                        owner_id: currentUser.id,
                         name: '我的家'
                     })
                     .select()
