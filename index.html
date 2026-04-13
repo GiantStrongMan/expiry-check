@@ -7,6 +7,14 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="format-detection" content="telephone=no">
     <title>过期了么 - 物品有效期管理</title>
+    
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Supabase 配置
+        window.SUPABASE_URL = 'https://sgaoexmuoiczshfzbkob.supabase.co';
+        window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnYW9leG11b2ljenNoZnpia29iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTA1OTgsImV4cCI6MjA5MTY2NjU5OH0.xza4R8NayZ3y9nHi95pe7m3YjDFBu7wxvwzG6dkA8a4';
+    </script>
     <script>
         // 字体大小设置
         window.FONT_SIZE_KEY = 'guoqiLeMe_fontSize';
@@ -128,7 +136,7 @@
         
         .font-size-btn {
             position: absolute;
-            right: 12px;
+            right: 60px;
             top: 50%;
             transform: translateY(-50%);
             width: 36px;
@@ -142,6 +150,217 @@
             display: flex;
             align-items: center;
             justify-content: center;
+        }
+        
+        /* 登录区域 */
+        .auth-area {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 10;
+        }
+        
+        .auth-btn {
+            padding: 6px 12px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .auth-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .auth-user {
+            color: white;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .auth-user .email {
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .auth-user .logout-btn {
+            padding: 4px 8px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+        
+        .auth-user .logout-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        /* 登录模态框 */
+        .auth-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 3000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .auth-modal.show { display: flex; }
+        
+        .auth-modal-content {
+            background: white;
+            border-radius: 18px;
+            padding: 28px 24px;
+            width: 100%;
+            max-width: 360px;
+            text-align: center;
+            animation: popIn 0.25s ease;
+        }
+        
+        .auth-modal-content .auth-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+        
+        .auth-modal-content h2 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 20px;
+        }
+        
+        .auth-form-group {
+            margin-bottom: 14px;
+            text-align: left;
+        }
+        
+        .auth-form-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+        
+        .auth-form-group input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 0.95rem;
+            box-sizing: border-box;
+        }
+        
+        .auth-form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        .auth-modal-content .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .auth-modal-content .btn {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .auth-modal-content .btn-cancel {
+            background: var(--bg);
+            color: var(--text);
+        }
+        
+        .auth-modal-content .btn-submit {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+        }
+        
+        .auth-modal-content .btn-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .auth-switch {
+            margin-top: 16px;
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+        
+        .auth-switch a {
+            color: var(--primary);
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        .auth-switch a:hover {
+            text-decoration: underline;
+        }
+        
+        .auth-error {
+            color: var(--danger);
+            font-size: 0.85rem;
+            margin-top: 10px;
+            display: none;
+        }
+        
+        .auth-error.show { display: block; }
+        
+        /* 房子切换器 */
+        .house-selector {
+            display: none;
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .house-selector.show { display: flex; }
+        
+        .house-selector select {
+            padding: 6px 28px 6px 10px;
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 8px;
+            color: white;
+            font-size: 0.8rem;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+        }
+        
+        .house-selector select option {
+            background: var(--primary);
+            color: white;
         }
         
         .font-size-menu {
@@ -1161,11 +1380,44 @@
             <span class="header-icon">⏰</span>
             <h1>过期了么</h1>
         </div>
+        <div class="house-selector" id="houseSelector">
+            <select id="houseSelect" onchange="onHouseChange()">
+                <option value="">加载中...</option>
+            </select>
+        </div>
+        <div class="auth-area" id="authArea">
+            <!-- 动态渲染 -->
+        </div>
         <button class="font-size-btn" id="fontSizeBtn" onclick="toggleFontSizeMenu()" title="字体大小">🔤</button>
         <div class="font-size-menu" id="fontSizeMenu">
             <div class="font-size-option" onclick="setFontSizeOption('small')">小字</div>
             <div class="font-size-option active" onclick="setFontSizeOption('medium')">中字</div>
             <div class="font-size-option" onclick="setFontSizeOption('large')">大字</div>
+        </div>
+    </div>
+    
+    <!-- 登录/注册模态框 -->
+    <div class="auth-modal" id="authModal">
+        <div class="auth-modal-content">
+            <div class="auth-icon" id="authIcon">🔐</div>
+            <h2 id="authTitle">登录</h2>
+            <div class="auth-form-group">
+                <label>邮箱</label>
+                <input type="email" id="authEmail" placeholder="请输入邮箱">
+            </div>
+            <div class="auth-form-group">
+                <label>密码</label>
+                <input type="password" id="authPassword" placeholder="请输入密码">
+            </div>
+            <div class="auth-error" id="authError"></div>
+            <div class="btn-group">
+                <button class="btn btn-cancel" onclick="closeAuthModal()">取消</button>
+                <button class="btn btn-submit" id="authSubmitBtn" onclick="handleAuthSubmit()">登录</button>
+            </div>
+            <div class="auth-switch">
+                <span id="authSwitchText">还没有账号？</span>
+                <a id="authSwitchLink" onclick="toggleAuthMode()">立即注册</a>
+            </div>
         </div>
     </div>
     
@@ -1413,6 +1665,462 @@
 
     <script>
         var STORAGE_KEY = 'guoqiLeMe_v9';
+        
+        // ========== Supabase 相关 ==========
+        var supabase = null;
+        var currentUser = null;
+        var currentHouseId = null;
+        var houses = [];
+        var isRegisterMode = false;
+        
+        // 初始化 Supabase
+        function initSupabase() {
+            if (typeof window.supabase !== 'undefined') {
+                supabase = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+                console.log('[Supabase] Initialized');
+                return true;
+            }
+            console.log('[Supabase] SDK not loaded yet');
+            return false;
+        }
+        
+        // 检查认证状态
+        async function checkAuthState() {
+            if (!supabase) {
+                if (!initSupabase()) {
+                    setTimeout(checkAuthState, 500);
+                    return;
+                }
+            }
+            
+            try {
+                var session = await supabase.auth.getSession();
+                if (session.data.session) {
+                    currentUser = session.data.session.user;
+                    console.log('[Auth] User logged in:', currentUser.email);
+                    await onUserLoggedIn();
+                } else {
+                    console.log('[Auth] No session');
+                    updateAuthUI();
+                }
+            } catch (err) {
+                console.error('[Auth] Error:', err);
+            }
+            
+            // 监听认证状态变化
+            supabase.auth.onAuthStateChange(async function(event, session) {
+                console.log('[Auth] State changed:', event);
+                if (event === 'SIGNED_IN' && session) {
+                    currentUser = session.user;
+                    await onUserLoggedIn();
+                } else if (event === 'SIGNED_OUT') {
+                    currentUser = null;
+                    currentHouseId = null;
+                    houses = [];
+                    updateAuthUI();
+                    renderHouseSelector();
+                }
+            });
+        }
+        
+        // 用户登录后初始化
+        async function onUserLoggedIn() {
+            updateAuthUI();
+            await loadHouses();
+            await syncLocalToCloud();
+            renderHouseSelector();
+        }
+        
+        // 更新认证 UI
+        function updateAuthUI() {
+            var authArea = document.getElementById('authArea');
+            if (!authArea) return;
+            
+            if (currentUser) {
+                authArea.innerHTML = '<div class="auth-user">' +
+                    '<span>👤</span>' +
+                    '<span class="email" title="' + escapeHtml(currentUser.email) + '">' + escapeHtml(currentUser.email) + '</span>' +
+                    '<button class="logout-btn" onclick="handleLogout()">退出</button>' +
+                    '</div>';
+            } else {
+                authArea.innerHTML = '<button class="auth-btn" onclick="openAuthModal()">' +
+                    '<span>🔑</span><span>登录</span></button>';
+            }
+        }
+        
+        // 打开登录模态框
+        function openAuthModal() {
+            isRegisterMode = false;
+            document.getElementById('authModal').classList.add('show');
+            document.getElementById('authEmail').value = '';
+            document.getElementById('authPassword').value = '';
+            document.getElementById('authError').classList.remove('show');
+            updateAuthModalUI();
+        }
+        
+        // 关闭登录模态框
+        function closeAuthModal() {
+            document.getElementById('authModal').classList.remove('show');
+        }
+        
+        // 切换登录/注册模式
+        function toggleAuthMode() {
+            isRegisterMode = !isRegisterMode;
+            updateAuthModalUI();
+        }
+        
+        // 更新登录模态框 UI
+        function updateAuthModalUI() {
+            if (isRegisterMode) {
+                document.getElementById('authIcon').textContent = '📝';
+                document.getElementById('authTitle').textContent = '注册';
+                document.getElementById('authSubmitBtn').textContent = '注册';
+                document.getElementById('authSwitchText').textContent = '已有账号？';
+                document.getElementById('authSwitchLink').textContent = '立即登录';
+            } else {
+                document.getElementById('authIcon').textContent = '🔐';
+                document.getElementById('authTitle').textContent = '登录';
+                document.getElementById('authSubmitBtn').textContent = '登录';
+                document.getElementById('authSwitchText').textContent = '还没有账号？';
+                document.getElementById('authSwitchLink').textContent = '立即注册';
+            }
+            document.getElementById('authError').classList.remove('show');
+        }
+        
+        // 处理登录/注册提交
+        async function handleAuthSubmit() {
+            var email = document.getElementById('authEmail').value.trim();
+            var password = document.getElementById('authPassword').value;
+            var errorEl = document.getElementById('authError');
+            var submitBtn = document.getElementById('authSubmitBtn');
+            
+            if (!email || !password) {
+                errorEl.textContent = '请输入邮箱和密码';
+                errorEl.classList.add('show');
+                return;
+            }
+            
+            if (password.length < 6) {
+                errorEl.textContent = '密码至少需要6位';
+                errorEl.classList.add('show');
+                return;
+            }
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = isRegisterMode ? '注册中...' : '登录中...';
+            
+            try {
+                if (isRegisterMode) {
+                    var signUpResult = await supabase.auth.signUp({
+                        email: email,
+                        password: password
+                    });
+                    
+                    if (signUpResult.error) {
+                        throw signUpResult.error;
+                    }
+                    
+                    showToast('注册成功！请查收验证邮件');
+                    closeAuthModal();
+                } else {
+                    var signInResult = await supabase.auth.signInWithPassword({
+                        email: email,
+                        password: password
+                    });
+                    
+                    if (signInResult.error) {
+                        throw signInResult.error;
+                    }
+                    
+                    showToast('登录成功');
+                    closeAuthModal();
+                }
+            } catch (err) {
+                console.error('[Auth] Error:', err);
+                errorEl.textContent = err.message || '操作失败，请重试';
+                errorEl.classList.add('show');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = isRegisterMode ? '注册' : '登录';
+            }
+        }
+        
+        // 处理登出
+        async function handleLogout() {
+            try {
+                await supabase.auth.signOut();
+                showToast('已退出登录');
+            } catch (err) {
+                console.error('[Auth] Logout error:', err);
+            }
+        }
+        
+        // 房子管理
+        async function loadHouses() {
+            if (!currentUser) return;
+            
+            try {
+                var result = await supabase
+                    .from('houses')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .order('created_at', { ascending: true });
+                
+                if (result.error) throw result.error;
+                
+                houses = result.data || [];
+                console.log('[House] Loaded:', houses.length);
+                
+                // 如果没有房子，创建默认房子
+                if (houses.length === 0) {
+                    await createDefaultHouse();
+                } else {
+                    // 使用第一个房子
+                    currentHouseId = houses[0].id;
+                }
+            } catch (err) {
+                console.error('[House] Load error:', err);
+            }
+        }
+        
+        async function createDefaultHouse() {
+            if (!currentUser) return;
+            
+            try {
+                var result = await supabase
+                    .from('houses')
+                    .insert({
+                        user_id: currentUser.id,
+                        name: '我的家'
+                    })
+                    .select()
+                    .single();
+                
+                if (result.error) throw result.error;
+                
+                houses.push(result.data);
+                currentHouseId = result.data.id;
+                console.log('[House] Default created:', result.data);
+            } catch (err) {
+                console.error('[House] Create error:', err);
+            }
+        }
+        
+        function renderHouseSelector() {
+            var selector = document.getElementById('houseSelector');
+            var select = document.getElementById('houseSelect');
+            
+            if (!currentUser || houses.length <= 1) {
+                selector.classList.remove('show');
+                return;
+            }
+            
+            selector.classList.add('show');
+            select.innerHTML = houses.map(function(house) {
+                return '<option value="' + house.id + '"' + 
+                       (house.id === currentHouseId ? ' selected' : '') + '>' + 
+                       escapeHtml(house.name) + '</option>';
+            }).join('');
+        }
+        
+        async function onHouseChange() {
+            var select = document.getElementById('houseSelect');
+            currentHouseId = select.value;
+            await syncFromCloud();
+        }
+        
+        // 数据同步
+        async function syncLocalToCloud() {
+            if (!currentUser || !currentHouseId) return;
+            
+            try {
+                // 获取云端数据
+                var cloudResult = await supabase
+                    .from('items')
+                    .select('*')
+                    .eq('house_id', currentHouseId);
+                
+                if (cloudResult.error) throw cloudResult.error;
+                
+                var cloudItems = cloudResult.data || [];
+                
+                // 合并数据：以云端数据为准，如果有冲突则保留云端
+                // 如果本地有新数据但云端没有，同步到云端
+                for (var i = 0; i < items.length; i++) {
+                    var localItem = items[i];
+                    var existsInCloud = false;
+                    
+                    for (var j = 0; j < cloudItems.length; j++) {
+                        if (cloudItems[j].local_id === localItem.id) {
+                            existsInCloud = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!existsInCloud) {
+                        // 同步新数据到云端
+                        await supabase.from('items').insert({
+                            house_id: currentHouseId,
+                            local_id: localItem.id,
+                            name: localItem.name,
+                            type: localItem.type,
+                            category: localItem.category,
+                            reminder_days: localItem.reminderDays,
+                            location: localItem.location,
+                            image: localItem.image,
+                            pieces: JSON.stringify(localItem.pieces),
+                            created_at: localItem.createdAt,
+                            updated_at: localItem.updatedAt
+                        });
+                    }
+                }
+                
+                console.log('[Sync] Local to cloud sync complete');
+            } catch (err) {
+                console.error('[Sync] Error:', err);
+            }
+        }
+        
+        async function syncFromCloud() {
+            if (!currentUser || !currentHouseId) return;
+            
+            try {
+                var result = await supabase
+                    .from('items')
+                    .select('*')
+                    .eq('house_id', currentHouseId);
+                
+                if (result.error) throw result.error;
+                
+                var cloudItems = result.data || [];
+                
+                // 将云端数据转换为本地格式
+                var cloudData = cloudItems.map(function(cloudItem) {
+                    return {
+                        id: cloudItem.local_id,
+                        name: cloudItem.name,
+                        type: cloudItem.type,
+                        category: cloudItem.category,
+                        reminderDays: cloudItem.reminder_days,
+                        location: cloudItem.location,
+                        image: cloudItem.image,
+                        pieces: typeof cloudItem.pieces === 'string' ? JSON.parse(cloudItem.pieces) : cloudItem.pieces,
+                        createdAt: cloudItem.created_at,
+                        updatedAt: cloudItem.updated_at
+                    };
+                });
+                
+                // 合并到本地 items
+                var localIds = items.map(function(item) { return item.id; });
+                
+                for (var i = 0; i < cloudData.length; i++) {
+                    if (localIds.indexOf(cloudData[i].id) === -1) {
+                        items.push(cloudData[i]);
+                    }
+                }
+                
+                // 保存到本地
+                saveItems();
+                renderItems();
+                console.log('[Sync] Cloud to local sync complete, items:', items.length);
+            } catch (err) {
+                console.error('[Sync] Error:', err);
+            }
+        }
+        
+        // 覆盖原有 saveItems 函数以支持云端同步
+        var originalSaveItems = null;
+        function saveItems() {
+            safeSetItem(STORAGE_KEY, JSON.stringify(items));
+            // 如果登录了，同步到云端
+            if (currentUser && currentHouseId) {
+                debouncedSyncToCloud();
+            }
+        }
+        
+        // 防抖同步
+        var syncTimer = null;
+        function debouncedSyncToCloud() {
+            if (syncTimer) clearTimeout(syncTimer);
+            syncTimer = setTimeout(syncItemToCloud, 1000);
+        }
+        
+        async function syncItemToCloud() {
+            if (!currentUser || !currentHouseId) return;
+            
+            try {
+                // 删除云端中不存在的项
+                var cloudResult = await supabase
+                    .from('items')
+                    .select('local_id')
+                    .eq('house_id', currentHouseId);
+                
+                if (!cloudResult.error && cloudResult.data) {
+                    var cloudIds = cloudResult.data.map(function(item) { return item.local_id; });
+                    
+                    for (var i = 0; i < items.length; i++) {
+                        var item = items[i];
+                        if (cloudIds.indexOf(item.id) === -1) {
+                            // 新增到云端
+                            await supabase.from('items').insert({
+                                house_id: currentHouseId,
+                                local_id: item.id,
+                                name: item.name,
+                                type: item.type,
+                                category: item.category,
+                                reminder_days: item.reminderDays,
+                                location: item.location,
+                                image: item.image,
+                                pieces: JSON.stringify(item.pieces),
+                                created_at: item.createdAt,
+                                updated_at: item.updatedAt
+                            });
+                        } else {
+                            // 更新云端
+                            await supabase
+                                .from('items')
+                                .update({
+                                    name: item.name,
+                                    type: item.type,
+                                    category: item.category,
+                                    reminder_days: item.reminderDays,
+                                    location: item.location,
+                                    image: item.image,
+                                    pieces: JSON.stringify(item.pieces),
+                                    updated_at: item.updatedAt
+                                })
+                                .eq('house_id', currentHouseId)
+                                .eq('local_id', item.id);
+                        }
+                    }
+                    
+                    // 删除云端有但本地没有的
+                    for (var j = 0; j < cloudResult.data.length; j++) {
+                        var cloudId = cloudResult.data[j].local_id;
+                        var exists = false;
+                        for (var k = 0; k < items.length; k++) {
+                            if (items[k].id === cloudId) {
+                                exists = true;
+                                break;
+                            }
+                        }
+                        if (!exists) {
+                            await supabase
+                                .from('items')
+                                .delete()
+                                .eq('house_id', currentHouseId)
+                                .eq('local_id', cloudId);
+                        }
+                    }
+                }
+                
+                console.log('[Sync] Item sync complete');
+            } catch (err) {
+                console.error('[Sync] Item sync error:', err);
+            }
+        }
+        
+        // ========== 原有代码 ==========
         
         // 生鲜食品分类（需要3天红色预警）
         var freshFoodCategories = ['蔬菜', '水果', '肉类', '海鲜', '蛋奶', '熟食', '冷冻生鲜'];
@@ -2038,6 +2746,9 @@
             checkUrgentItems();
             // 初始化语音支持检测
             checkVoiceSupport();
+            // 初始化 Supabase 认证
+            initSupabase();
+            checkAuthState();
             // 点击其他地方关闭字体菜单
             document.addEventListener('click', function(e) {
                 var menu = document.getElementById('fontSizeMenu');
@@ -2096,9 +2807,7 @@
             }
         }
         
-        function saveItems() {
-            safeSetItem(STORAGE_KEY, JSON.stringify(items));
-        }
+        // saveItems 函数已在上方 Supabase 同步部分定义
         
         function filterByStatus(status) {
             statusFilter = status;
@@ -3244,6 +3953,10 @@
         
         document.getElementById('confirmModal').addEventListener('click', function(e) {
             if (e.target === this) closeConfirmModal();
+        });
+        
+        document.getElementById('authModal').addEventListener('click', function(e) {
+            if (e.target === this) closeAuthModal();
         });
         
         // ========== 长按菜单功能 ==========
