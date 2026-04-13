@@ -453,6 +453,7 @@
         .card-category { font-size: 0.8rem; color: var(--text-light); margin-bottom: 4px; }
         .card-summary { font-size: 0.85rem; color: var(--text); margin-bottom: 6px; }
         .card-summary .warn { color: var(--danger); font-weight: 600; }
+        .card-extra-info { font-size: 0.75rem; color: var(--text-lighter); margin-bottom: 4px; }
         
         .card-status {
             display: inline-block;
@@ -909,6 +910,96 @@
         .alert-btn-confirm { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; }
         .alert-btn-single { background: linear-gradient(135deg, var(--danger), #dc2626); color: white; width: 100%; }
         
+        /* 删除确认弹窗样式 */
+        .confirm-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 2500;
+            -webkit-box-pack: center;
+            -ms-flex-pack: center;
+            justify-content: center;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .confirm-modal.show { display: -webkit-box; display: -ms-flexbox; display: flex; }
+        
+        .confirm-content {
+            background: white;
+            border-radius: 18px;
+            padding: 24px;
+            max-width: 320px;
+            width: 100%;
+            text-align: center;
+            -webkit-animation: popIn 0.25s ease;
+            animation: popIn 0.25s ease;
+        }
+        
+        @keyframes popIn {
+            from { -webkit-transform: scale(0.85); transform: scale(0.85); opacity: 0; }
+            to { -webkit-transform: scale(1); transform: scale(1); opacity: 1; }
+        }
+        
+        .confirm-icon { font-size: 2.5rem; margin-bottom: 12px; }
+        .confirm-title { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+        .confirm-message { font-size: 0.9rem; color: var(--text-light); margin-bottom: 20px; line-height: 1.5; }
+        
+        .confirm-buttons { display: -webkit-box; display: -ms-flexbox; display: flex; gap: 10px; }
+        .confirm-buttons button { -webkit-box-flex: 1; -ms-flex: 1; flex: 1; padding: 12px; border: none; border-radius: 10px; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+        .confirm-btn-cancel { background: var(--bg); color: var(--text); }
+        .confirm-btn-danger { background: linear-gradient(135deg, var(--danger), #dc2626); color: white; }
+        
+        /* 长按菜单 */
+        .context-menu {
+            display: none;
+            position: fixed;
+            background: white;
+            border-radius: 14px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+            z-index: 3000;
+            min-width: 180px;
+            overflow: hidden;
+            -webkit-animation: menuPop 0.2s ease;
+            animation: menuPop 0.2s ease;
+        }
+        
+        .context-menu.show { display: block; }
+        
+        @keyframes menuPop {
+            from { -webkit-transform: scale(0.9) translateY(-10px); transform: scale(0.9) translateY(-10px); opacity: 0; }
+            to { -webkit-transform: scale(1) translateY(0); transform: scale(1) translateY(0); opacity: 1; }
+        }
+        
+        .context-menu-item {
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 16px;
+            font-size: 0.9rem;
+            color: var(--text);
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+            -webkit-transition: background 0.15s ease;
+            transition: background 0.15s ease;
+        }
+        
+        .context-menu-item:last-child { border-bottom: none; }
+        .context-menu-item:active { background: var(--bg); }
+        .context-menu-item.danger { color: var(--danger); }
+        
+        .context-menu-item .icon { font-size: 1.1rem; }
+        
         /* 图片预览 */
         .img-preview-modal {
             display: none;
@@ -1146,6 +1237,39 @@
             <div class="alert-title" id="alertTitle">紧急提醒</div>
             <div class="alert-message" id="alertMessage"></div>
             <button class="alert-btn-single" onclick="closeAlert()">我知道了</button>
+        </div>
+    </div>
+    
+    <!-- 删除确认弹窗 -->
+    <div class="confirm-modal" id="confirmModal">
+        <div class="confirm-content">
+            <div class="confirm-icon" id="confirmIcon">🗑️</div>
+            <div class="confirm-title" id="confirmTitle">确认删除</div>
+            <div class="confirm-message" id="confirmMessage">确定要删除吗？</div>
+            <div class="confirm-buttons">
+                <button class="confirm-btn-cancel" onclick="closeConfirmModal()">取消</button>
+                <button class="confirm-btn-danger" onclick="confirmDelete()">确定</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 长按操作菜单 -->
+    <div class="context-menu" id="contextMenu">
+        <div class="context-menu-item" onclick="contextCopyInfo()">
+            <span class="icon">📋</span>
+            <span>复制信息</span>
+        </div>
+        <div class="context-menu-item" onclick="contextShare()">
+            <span class="icon">🔗</span>
+            <span>分享</span>
+        </div>
+        <div class="context-menu-item" onclick="contextEdit()">
+            <span class="icon">✏️</span>
+            <span>编辑</span>
+        </div>
+        <div class="context-menu-item danger" onclick="contextDelete()">
+            <span class="icon">🗑️</span>
+            <span>删除</span>
         </div>
     </div>
     
@@ -2133,12 +2257,25 @@
                     }
                 }
                 
-                html += '<div class="item-card ' + urgency.class + '" onclick="toggleDetail(this)">' +
+                // 构建卡片附加信息（购买日期、存放位置）
+                var cardExtraInfo = '';
+                var firstPiece = item.pieces && item.pieces.length > 0 ? item.pieces[0] : null;
+                if (firstPiece && firstPiece.purchaseDate) {
+                    cardExtraInfo += '<span>购买：' + firstPiece.purchaseDate + '</span>';
+                }
+                if (item.location) {
+                    if (cardExtraInfo) cardExtraInfo += ' · ';
+                    cardExtraInfo += '<span>📍' + escapeHtml(item.location) + '</span>';
+                }
+                var extraInfoHtml = cardExtraInfo ? '<div class="card-extra-info">' + cardExtraInfo + '</div>' : '';
+                
+                html += '<div class="item-card ' + urgency.class + '" onclick="toggleDetail(this)" oncontextmenu="showContextMenu(event, \'' + item.id + '\'); return false;">' +
                     '<div class="card-main">' +
                     imgHtml +
                     '<div class="card-content">' +
                     '<div class="card-name">' + escapeHtml(item.name) + '</div>' +
                     '<div class="card-category">' + typeIcon + ' ' + escapeHtml(item.category) + '</div>' +
+                    extraInfoHtml +
                     '<div class="card-summary">' + summary + '</div>' +
                     '<div class="card-status ' + urgency.level + '">' + urgency.status + '</div>' +
                     '</div>' +
@@ -2153,6 +2290,9 @@
             }
             
             listEl.innerHTML = html;
+            
+            // 绑定长按事件
+            bindLongPressEvents();
         }
         
         function toggleDetail(card) {
@@ -2398,10 +2538,69 @@
         
         function editItem(id) { openModal(id); }
         
+        // 删除确认相关变量
+        var pendingDeleteItemId = null;
+        var pendingDeletePieceIdx = null;
+        var pendingDeleteItemIdForPiece = null;
+        
+        // 删除物品 - 显示确认弹窗
         function deleteItem(id) {
-            if (confirm('确定要删除这个物品吗？')) {
+            var item = findItemById(id);
+            if (!item) return;
+            
+            pendingDeleteItemId = id;
+            pendingDeletePieceIdx = null;
+            pendingDeleteItemIdForPiece = null;
+            
+            document.getElementById('confirmIcon').textContent = '🗑️';
+            document.getElementById('confirmTitle').textContent = '确认删除';
+            document.getElementById('confirmMessage').textContent = '确定删除「' + escapeHtml(item.name) + '」吗？';
+            document.getElementById('confirmModal').classList.add('show');
+        }
+        
+        // 删除单件 - 显示确认弹窗
+        function deletePiece(itemId, pieceIdx) {
+            var item = findItemById(itemId);
+            if (!item) return;
+            
+            if (item.pieces.length <= 1) {
+                // 最后一件，询问是否删除整个物品
+                pendingDeleteItemId = itemId;
+                pendingDeletePieceIdx = null;
+                pendingDeleteItemIdForPiece = null;
+                
+                document.getElementById('confirmIcon').textContent = '⚠️';
+                document.getElementById('confirmTitle').textContent = '最后一件';
+                document.getElementById('confirmMessage').textContent = '这是「' + escapeHtml(item.name) + '」的最后一件，删除整件物品吗？';
+                document.getElementById('confirmModal').classList.add('show');
+                return;
+            }
+            
+            // 删除单件
+            pendingDeleteItemId = null;
+            pendingDeletePieceIdx = pieceIdx;
+            pendingDeleteItemIdForPiece = itemId;
+            
+            document.getElementById('confirmIcon').textContent = '🗑️';
+            document.getElementById('confirmTitle').textContent = '确认删除';
+            document.getElementById('confirmMessage').textContent = '确定删除这件吗？';
+            document.getElementById('confirmModal').classList.add('show');
+        }
+        
+        // 关闭确认弹窗
+        function closeConfirmModal() {
+            document.getElementById('confirmModal').classList.remove('show');
+            pendingDeleteItemId = null;
+            pendingDeletePieceIdx = null;
+            pendingDeleteItemIdForPiece = null;
+        }
+        
+        // 确认删除
+        function confirmDelete() {
+            if (pendingDeleteItemId) {
+                // 删除整个物品
                 for (var i = 0; i < items.length; i++) {
-                    if (items[i].id === id) {
+                    if (items[i].id === pendingDeleteItemId) {
                         items.splice(i, 1);
                         break;
                     }
@@ -2409,7 +2608,18 @@
                 saveItems();
                 renderItems();
                 showToast('已删除');
+            } else if (pendingDeletePieceIdx !== null && pendingDeleteItemIdForPiece) {
+                // 删除单件
+                var item = findItemById(pendingDeleteItemIdForPiece);
+                if (item && item.pieces[pendingDeletePieceIdx]) {
+                    item.pieces.splice(pendingDeletePieceIdx, 1);
+                    item.updatedAt = new Date().toISOString();
+                    saveItems();
+                    renderItems();
+                    showToast('已删除');
+                }
             }
+            closeConfirmModal();
         }
         
         function openAddPieceModal(itemId) {
@@ -2475,26 +2685,6 @@
             saveItems();
             renderItems();
             showToast('已更新');
-        }
-        
-        function deletePiece(itemId, pieceIdx) {
-            var item = findItemById(itemId);
-            if (!item) return;
-            
-            if (item.pieces.length <= 1) {
-                if (confirm('这是最后一件，是否删除整个物品？')) {
-                    deleteItem(itemId);
-                }
-                return;
-            }
-            
-            if (confirm('确定要删除这一件吗？')) {
-                item.pieces.splice(pieceIdx, 1);
-                item.updatedAt = new Date().toISOString();
-                saveItems();
-                renderItems();
-                showToast('已删除');
-            }
         }
         
         function previewImage(input) {
@@ -2670,6 +2860,203 @@
         document.getElementById('imgPreviewModal').addEventListener('click', function(e) {
             if (e.target === this) closeImagePreview();
         });
+        
+        document.getElementById('confirmModal').addEventListener('click', function(e) {
+            if (e.target === this) closeConfirmModal();
+        });
+        
+        // ========== 长按菜单功能 ==========
+        var contextMenuTargetId = null;
+        var longPressTimer = null;
+        var isLongPress = false;
+        
+        // 显示右键菜单（桌面端）/触发长按（移动端）
+        function showContextMenu(event, itemId) {
+            event.preventDefault();
+            contextMenuTargetId = itemId;
+            
+            var menu = document.getElementById('contextMenu');
+            var x = event.clientX || (event.touches && event.touches[0].clientX) || 100;
+            var y = event.clientY || (event.touches && event.touches[0].clientY) || 100;
+            
+            // 确保菜单不会超出屏幕
+            var menuWidth = 180;
+            var menuHeight = 200;
+            var maxX = window.innerWidth - menuWidth - 10;
+            var maxY = window.innerHeight - menuHeight - 10;
+            
+            x = Math.min(x, maxX);
+            y = Math.min(y, maxY);
+            
+            menu.style.left = x + 'px';
+            menu.style.top = y + 'px';
+            menu.classList.add('show');
+        }
+        
+        // 关闭右键菜单
+        function hideContextMenu() {
+            document.getElementById('contextMenu').classList.remove('show');
+            contextMenuTargetId = null;
+        }
+        
+        // 绑定长按事件
+        function bindLongPressEvents() {
+            var cards = document.querySelectorAll('.item-card');
+            cards.forEach(function(card) {
+                var itemId = card.getAttribute('oncontextmenu');
+                if (itemId) {
+                    // 提取itemId
+                    var match = itemId.match(/'([^']+)'\s*;/);
+                    if (match) {
+                        itemId = match[1];
+                    }
+                }
+                
+                // 触摸开始
+                card.addEventListener('touchstart', function(e) {
+                    isLongPress = false;
+                    var targetItemId = extractItemIdFromCard(this);
+                    longPressTimer = setTimeout(function() {
+                        isLongPress = true;
+                        showContextMenu(e, targetItemId);
+                    }, 500);
+                }, { passive: true });
+                
+                // 触摸移动
+                card.addEventListener('touchmove', function(e) {
+                    if (longPressTimer) {
+                        clearTimeout(longPressTimer);
+                        longPressTimer = null;
+                    }
+                }, { passive: true });
+                
+                // 触摸结束
+                card.addEventListener('touchend', function(e) {
+                    if (longPressTimer) {
+                        clearTimeout(longPressTimer);
+                        longPressTimer = null;
+                    }
+                    // 如果是长按且有打开菜单，阻止冒泡
+                    if (isLongPress && document.getElementById('contextMenu').classList.contains('show')) {
+                        e.preventDefault();
+                    }
+                });
+                
+                // 右键菜单
+                card.addEventListener('contextmenu', function(e) {
+                    e.preventDefault();
+                    var targetItemId = extractItemIdFromCard(this);
+                    showContextMenu(e, targetItemId);
+                });
+            });
+        }
+        
+        // 从卡片提取itemId
+        function extractItemIdFromCard(card) {
+            var onclick = card.getAttribute('oncontextmenu') || '';
+            var match = onclick.match(/'([^']+)'/);
+            return match ? match[1] : null;
+        }
+        
+        // 点击其他地方关闭菜单
+        document.addEventListener('click', function(e) {
+            var menu = document.getElementById('contextMenu');
+            if (menu && !menu.contains(e.target) && !e.target.closest('.item-card')) {
+                hideContextMenu();
+            }
+        });
+        
+        // 复制信息
+        function contextCopyInfo() {
+            if (!contextMenuTargetId) return;
+            var item = findItemById(contextMenuTargetId);
+            if (!item) return;
+            
+            var info = item.name;
+            if (item.pieces && item.pieces.length > 0) {
+                info += '，过期日期：' + item.pieces[0].expireDate;
+            }
+            if (item.location) {
+                info += '，存放位置：' + item.location;
+            }
+            
+            try {
+                navigator.clipboard.writeText(info).then(function() {
+                    showToast('已复制');
+                }).catch(function() {
+                    // fallback
+                    var textarea = document.createElement('textarea');
+                    textarea.value = info;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    showToast('已复制');
+                });
+            } catch (e) {
+                showToast('复制失败');
+            }
+            
+            hideContextMenu();
+        }
+        
+        // 分享
+        function contextShare() {
+            if (!contextMenuTargetId) return;
+            var item = findItemById(contextMenuTargetId);
+            if (!item) return;
+            
+            var info = item.name;
+            if (item.pieces && item.pieces.length > 0) {
+                var daysLeft = getDaysLeft(item.pieces[0].expireDate);
+                if (daysLeft < 0) {
+                    info += ' - 已过期' + Math.abs(daysLeft) + '天';
+                } else {
+                    info += ' - 剩余' + daysLeft + '天过期';
+                }
+            }
+            info += '\n分类：' + item.category;
+            if (item.location) {
+                info += '\n存放位置：' + item.location;
+            }
+            
+            // 尝试使用 Web Share API
+            if (navigator.share) {
+                navigator.share({
+                    title: '过期了么 - ' + item.name,
+                    text: info
+                }).catch(function() {
+                    // 用户取消分享
+                });
+            } else {
+                // fallback: 复制到剪贴板
+                try {
+                    navigator.clipboard.writeText(info).then(function() {
+                        showToast('信息已复制，可粘贴分享');
+                    }).catch(function() {
+                        showToast('分享功能不可用');
+                    });
+                } catch (e) {
+                    showToast('分享功能不可用');
+                }
+            }
+            
+            hideContextMenu();
+        }
+        
+        // 编辑
+        function contextEdit() {
+            if (!contextMenuTargetId) return;
+            editItem(contextMenuTargetId);
+            hideContextMenu();
+        }
+        
+        // 删除
+        function contextDelete() {
+            if (!contextMenuTargetId) return;
+            deleteItem(contextMenuTargetId);
+            hideContextMenu();
+        }
     </script>
 </body>
 </html>
