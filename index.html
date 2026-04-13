@@ -8,6 +8,21 @@
     <meta name="format-detection" content="telephone=no">
     <title>过期了么 - 物品有效期管理</title>
     <script>
+        // 字体大小设置
+        window.FONT_SIZE_KEY = 'guoqiLeMe_fontSize';
+        window.getFontSize = function() {
+            var size = localStorage.getItem(window.FONT_SIZE_KEY);
+            return size || 'medium';
+        };
+        window.setFontSize = function(size) {
+            localStorage.setItem(window.FONT_SIZE_KEY, size);
+            document.body.dataset.fontSize = size;
+        };
+        window.applyFontSize = function() {
+            var size = window.getFontSize();
+            document.body.dataset.fontSize = size;
+        };
+    </script>
         // 延迟加载 SheetJS，避免阻塞渲染
         window.onload = function() {
             var script = document.createElement('script');
@@ -33,6 +48,7 @@
             --danger: #ef4444;
             --danger-bg: #fef2f2;
             --danger-light: #fecaca;
+            --danger-dark: #b91c1c;
             --warning: #f59e0b;
             --warning-bg: #fffbeb;
             --warning-light: #fde68a;
@@ -44,6 +60,26 @@
             --text-light: #6b7280;
             --text-lighter: #9ca3af;
             --border: #e5e7eb;
+            /* 字体大小变量 - 默认中等 */
+            --base-font-size: 18px;
+            --header-title-size: 1.2rem;
+            --icon-size: 1.1rem;
+            --stat-num-size: 1.4rem;
+        }
+        
+        /* 字体大小档位 */
+        body[data-font-size="small"] {
+            --base-font-size: 16px;
+            --header-title-size: 1.1rem;
+            --icon-size: 1rem;
+            --stat-num-size: 1.3rem;
+        }
+        
+        body[data-font-size="large"] {
+            --base-font-size: 20px;
+            --header-title-size: 1.4rem;
+            --icon-size: 1.3rem;
+            --stat-num-size: 1.6rem;
         }
         
         body {
@@ -51,7 +87,7 @@
             background: var(--bg);
             color: var(--text);
             min-height: 100vh;
-            font-size: 16px;
+            font-size: var(--base-font-size);
             line-height: 1.6;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
@@ -82,11 +118,62 @@
             gap: 6px;
         }
         
-        .header-icon { font-size: 1.1rem; }
+        .header-icon { font-size: var(--icon-size); }
         
         .header h1 {
-            font-size: 1rem;
+            font-size: var(--header-title-size);
             font-weight: 700;
+        }
+        
+        .font-size-btn {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .font-size-menu {
+            display: none;
+            position: absolute;
+            right: 12px;
+            top: 60px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            overflow: hidden;
+            z-index: 200;
+        }
+        
+        .font-size-menu.show { display: block; }
+        
+        .font-size-option {
+            padding: 12px 20px;
+            color: var(--text);
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 500;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .font-size-option:last-child { border-bottom: none; }
+        
+        .font-size-option:hover { background: var(--bg); }
+        
+        .font-size-option.active { 
+            background: var(--safe-bg); 
+            color: var(--primary-dark);
+            font-weight: 600;
         }
         
         .container {
@@ -128,7 +215,7 @@
         .stat-item.safe.active { border-color: var(--safe); background: var(--safe-bg); }
         
         .stat-item .num {
-            font-size: 1.4rem;
+            font-size: var(--stat-num-size);
             font-weight: 800;
             line-height: 1;
             margin-bottom: 2px;
@@ -139,7 +226,7 @@
         .stat-item.safe .num, .stat-item.all .num { color: var(--primary); }
         
         .stat-item .label {
-            font-size: 0.65rem;
+            font-size: 0.7rem;
             color: var(--text-light);
             font-weight: 500;
             display: -webkit-box;
@@ -164,6 +251,11 @@
         .stat-item.danger .stat-dot { background: var(--danger); }
         .stat-item.warning .stat-dot { background: var(--warning); }
         .stat-item.safe .stat-dot { background: var(--safe); }
+        .stat-item.danger-fresh .stat-dot { background: var(--danger-dark); }
+        
+        .stat-item.danger-fresh.active { border-color: var(--danger-dark); background: var(--danger-bg); }
+        .stat-item.danger-fresh.active .num { color: var(--danger-dark); }
+        .stat-item.danger-fresh .num { color: var(--danger); }
         
         /* 分类标签 */
         .tabs {
@@ -199,7 +291,7 @@
             gap: 2px;
         }
         
-        .tab-btn .icon { font-size: 1.1rem; }
+        .tab-btn .icon { font-size: var(--icon-size); }
         
         .tab-btn .count {
             background: var(--bg);
@@ -287,14 +379,27 @@
         }
         
         .item-card.danger-critical, .item-card.danger-expired {
-            border: 2px solid var(--danger);
             background: -webkit-gradient(linear, left top, right top, from(var(--danger-bg)), to(var(--card-bg)));
             background: linear-gradient(to right, var(--danger-bg), var(--card-bg) 30%);
         }
         
+        /* 已过期：深红边框，更强脉冲 */
+        .item-card.danger-expired {
+            border: 3px solid var(--danger-dark);
+            -webkit-animation: pulse-expired 1.5s infinite;
+            animation: pulse-expired 1.5s infinite;
+        }
+        
+        /* 紧急（生鲜3天内）：红色边框 */
         .item-card.danger-critical {
+            border: 2px solid var(--danger);
             -webkit-animation: pulse-danger 2s infinite;
             animation: pulse-danger 2s infinite;
+        }
+        
+        @keyframes pulse-expired {
+            0%, 100% { box-shadow: 0 4px 20px rgba(185,28,28,0.2); }
+            50% { box-shadow: 0 4px 30px rgba(185,28,28,0.4); }
         }
         
         @keyframes pulse-danger {
@@ -436,8 +541,8 @@
             border-radius: 16px;
         }
         
-        .empty-state .icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.6; }
-        .empty-state p { font-size: 0.95rem; color: var(--text-light); }
+        .empty-state .icon { font-size: 4rem; margin-bottom: 12px; opacity: 0.6; }
+        .empty-state p { font-size: 1rem; color: var(--text-light); }
         
         /* 模态框 */
         .modal {
@@ -836,11 +941,11 @@
         }
         
         @media (max-width: 480px) {
-            .header h1 { font-size: 0.95rem; }
+            .header h1 { font-size: 1rem; }
             .container { padding: 12px 12px 32px; }
             .form-row, .form-row-3 { -webkit-box-orient: vertical; -webkit-box-direction: normal; -ms-flex-direction: column; flex-direction: column; }
             .card-thumb { width: 42px; height: 42px; }
-            .card-name { font-size: 0.95rem; }
+            .card-name { font-size: 1rem; }
         }
     </style>
 </head>
@@ -849,6 +954,12 @@
         <div class="header-content">
             <span class="header-icon">⏰</span>
             <h1>过期了么</h1>
+        </div>
+        <button class="font-size-btn" id="fontSizeBtn" onclick="toggleFontSizeMenu()" title="字体大小">🔤</button>
+        <div class="font-size-menu" id="fontSizeMenu">
+            <div class="font-size-option" onclick="setFontSizeOption('small')">小字</div>
+            <div class="font-size-option active" onclick="setFontSizeOption('medium')">中字</div>
+            <div class="font-size-option" onclick="setFontSizeOption('large')">大字</div>
         </div>
     </div>
     
@@ -860,15 +971,19 @@
             </div>
             <div class="stat-item danger" onclick="filterByStatus('danger')">
                 <div class="num" id="dangerCount">0</div>
-                <div class="label"><span class="stat-dot"></span>紧急</div>
+                <div class="label"><span class="stat-dot"></span>已过期</div>
             </div>
             <div class="stat-item warning" onclick="filterByStatus('warning')">
                 <div class="num" id="warningCount">0</div>
-                <div class="label"><span class="stat-dot"></span>注意</div>
+                <div class="label"><span class="stat-dot"></span>即将过期</div>
             </div>
             <div class="stat-item safe" onclick="filterByStatus('safe')">
                 <div class="num" id="safeCount">0</div>
                 <div class="label"><span class="stat-dot"></span>安全</div>
+            </div>
+            <div class="stat-item danger-fresh" onclick="filterByStatus('danger-fresh')">
+                <div class="num" id="dangerFreshCount">0</div>
+                <div class="label"><span class="stat-dot"></span>生鲜⚠️</div>
             </div>
         </div>
         
@@ -885,8 +1000,13 @@
             </button>
             <button class="tab-btn" onclick="filterByType('daily')">
                 <span class="icon">🧴</span>
-                <span>日用品</span>
+                <span>日用</span>
                 <span class="count" id="dailyCount">0</span>
+            </button>
+            <button class="tab-btn" onclick="filterByType('skincare')">
+                <span class="icon">💄</span>
+                <span>护肤</span>
+                <span class="count" id="skincareCount">0</span>
             </button>
         </div>
         
@@ -947,6 +1067,7 @@
                             <option value="">请选择</option>
                             <option value="food">🍎 食物</option>
                             <option value="daily">🧴 日用品</option>
+                            <option value="skincare">💄 护肤品</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -1038,40 +1159,77 @@
     <script>
         var STORAGE_KEY = 'guoqiLeMe_v9';
         
-        var perishableFoods = ['生鲜', '水果', '蔬菜', '肉类', '熟食'];
+        // 生鲜食品分类（需要3天红色预警）
+        var freshFoodCategories = ['蔬菜', '水果', '肉类', '海鲜', '蛋奶', '熟食'];
+        
+        // 普通食品分类（7天黄色提醒）
+        var normalFoodCategories = ['零食', '饮料', '调味品'];
+        
+        // 日用品分类（14天黄色提醒）
+        var dailyCategories = ['纸巾', '洗衣液', '洗护用品'];
+        
+        // 护肤品分类（30天黄色提醒）
+        var skincareCategories = ['面霜', '精华', '面膜', '防晒', '口红', '其他护肤品'];
+        
+        // 根据分类获取预警天数
+        function getWarningDaysByCategory(category) {
+            if (freshFoodCategories.indexOf(category) !== -1) {
+                return 3; // 生鲜3天
+            } else if (normalFoodCategories.indexOf(category) !== -1) {
+                return 7; // 普通食品7天
+            } else if (skincareCategories.indexOf(category) !== -1) {
+                return 30; // 护肤品30天
+            } else if (dailyCategories.indexOf(category) !== -1) {
+                return 14; // 日用品14天
+            }
+            return 7; // 默认7天
+        }
+        
+        // 判断是否为生鲜分类
+        function isFreshFood(category) {
+            return freshFoodCategories.indexOf(category) !== -1;
+        }
+        
+        var perishableFoods = ['蔬菜', '水果', '肉类', '熟食', '海鲜', '蛋奶'];
         
         var categories = {
-            food: ['生鲜', '乳制品', '水果', '蔬菜', '肉类', '饮料', '零食', '调味品', '熟食', '其他'],
-            daily: ['内裤', '内衣', '牙刷', '浴巾', '毛巾', '纸巾', '洗护用品', '护肤品', '化妆品', '清洁用品', '其他']
+            food: ['蔬菜', '水果', '肉类', '海鲜', '蛋奶', '熟食', '零食', '饮料', '调味品', '其他食品'],
+            daily: ['纸巾', '洗衣液', '洗护用品', '其他日用品'],
+            skincare: ['面霜', '精华', '面膜', '防晒', '口红', '其他护肤品']
         };
         
         var suggestedExpiry = {
             food: {
-                '生鲜': 3, '乳制品': 7, '水果': 7, '蔬菜': 5, '肉类': 3,
-                '饮料': 180, '零食': 180, '调味品': 365, '熟食': 2, '其他': 30
+                '蔬菜': 5, '水果': 7, '肉类': 3, '海鲜': 2, '蛋奶': 7, '熟食': 2,
+                '零食': 180, '饮料': 180, '调味品': 365, '其他食品': 30
             },
             daily: {
-                '内裤': 90, '内衣': 90, '牙刷': 90, '浴巾': 180, '毛巾': 90,
-                '纸巾': 365, '洗护用品': 365, '护肤品': 180, '化妆品': 730, '清洁用品': 365, '其他': 365
+                '纸巾': 365, '洗衣液': 365, '洗护用品': 365, '其他日用品': 365
+            },
+            skincare: {
+                '面霜': 365, '精华': 365, '面膜': 365, '防晒': 365, '口红': 730, '其他护肤品': 365
             }
         };
         
         var defaultReminderDays = {
             food: {
-                '生鲜': 1, '水果': 1, '蔬菜': 1, '肉类': 1, '熟食': 1,
-                '乳制品': 3, '饮料': 7, '零食': 7, '调味品': 14, '其他': 7
+                '蔬菜': 3, '水果': 3, '肉类': 3, '海鲜': 3, '蛋奶': 3, '熟食': 3,
+                '零食': 7, '饮料': 7, '调味品': 7, '其他食品': 7
             },
             daily: {
-                '内裤': 7, '内衣': 7, '牙刷': 7, '浴巾': 14, '毛巾': 7,
-                '纸巾': 14, '洗护用品': 14, '护肤品': 14, '化妆品': 30, '清洁用品': 14, '其他': 14
+                '纸巾': 14, '洗衣液': 14, '洗护用品': 14, '其他日用品': 14
+            },
+            skincare: {
+                '面霜': 30, '精华': 30, '面膜': 30, '防晒': 30, '口红': 30, '其他护肤品': 30
             }
         };
         
         var categoryTypeMap = {
-            '生鲜': 'food', '乳制品': 'food', '水果': 'food', '蔬菜': 'food', '肉类': 'food',
-            '饮料': 'food', '零食': 'food', '调味品': 'food', '熟食': 'food', '其他': 'food',
-            '内裤': 'daily', '内衣': 'daily', '牙刷': 'daily', '浴巾': 'daily', '毛巾': 'daily',
-            '纸巾': 'daily', '洗护用品': 'daily', '护肤品': 'daily', '化妆品': 'daily', '清洁用品': 'daily'
+            '蔬菜': 'food', '水果': 'food', '肉类': 'food', '海鲜': 'food', '蛋奶': 'food',
+            '熟食': 'food', '零食': 'food', '饮料': 'food', '调味品': 'food', '其他食品': 'food',
+            '纸巾': 'daily', '洗衣液': 'daily', '洗护用品': 'daily', '其他日用品': 'daily',
+            '面霜': 'skincare', '精华': 'skincare', '面膜': 'skincare', '防晒': 'skincare', 
+            '口红': 'skincare', '其他护肤品': 'skincare'
         };
         
         var items = [];
@@ -1604,14 +1762,53 @@
         
         document.addEventListener('DOMContentLoaded', function() {
             console.log('[App] Initializing...');
+            // 初始化字体大小设置
+            applyFontSize();
+            updateFontSizeMenu();
             loadItems();
             setTodayDate();
             renderItems();
             checkUrgentItems();
             // 初始化语音支持检测
             checkVoiceSupport();
+            // 点击其他地方关闭字体菜单
+            document.addEventListener('click', function(e) {
+                var menu = document.getElementById('fontSizeMenu');
+                var btn = document.getElementById('fontSizeBtn');
+                if (menu && btn && !menu.contains(e.target) && !btn.contains(e.target)) {
+                    menu.classList.remove('show');
+                }
+            });
             console.log('[App] Initialization complete');
         });
+        
+        // 切换字体菜单显示
+        function toggleFontSizeMenu() {
+            var menu = document.getElementById('fontSizeMenu');
+            menu.classList.toggle('show');
+        }
+        
+        // 设置字体大小
+        function setFontSizeOption(size) {
+            setFontSize(size);
+            updateFontSizeMenu();
+            document.getElementById('fontSizeMenu').classList.remove('show');
+            showToast('字体已调整为' + (size === 'small' ? '小' : size === 'medium' ? '中' : '大') + '小');
+        }
+        
+        // 更新字体菜单的选中状态
+        function updateFontSizeMenu() {
+            var currentSize = window.getFontSize();
+            var options = document.querySelectorAll('.font-size-option');
+            for (var i = 0; i < options.length; i++) {
+                var size = options[i].getAttribute('onclick').match(/'(\w+)'/)[1];
+                if (size === currentSize) {
+                    options[i].classList.add('active');
+                } else {
+                    options[i].classList.remove('active');
+                }
+            }
+        }
         
         function setTodayDate() {
             var today = new Date();
@@ -1750,39 +1947,79 @@
                 return { level: 'safe', class: 'safe', urgent: false, status: '安全' };
             }
             
-            var hasDanger = false;
-            var hasWarning = false;
+            var hasExpired = false; // 已过期
+            var hasDanger = false;   // 紧急（生鲜3天内）
+            var hasWarning = false;  // 即将过期
+            
+            // 根据物品分类获取对应的预警天数
+            var warningDays = getWarningDaysByCategory(item.category);
+            var isFresh = isFreshFood(item.category);
             
             for (var i = 0; i < item.pieces.length; i++) {
                 var piece = item.pieces[i];
                 var daysLeft = getDaysLeft(piece.expireDate);
-                var reminderDays = item.reminderDays || 7;
                 
-                if (daysLeft < 0 || daysLeft <= Math.floor(reminderDays / 2)) {
+                if (daysLeft < 0) {
+                    hasExpired = true;
+                } else if (isFresh && daysLeft <= 3) {
+                    // 生鲜类：3天内为紧急
                     hasDanger = true;
-                } else if (daysLeft <= reminderDays) {
+                } else if (daysLeft <= warningDays) {
                     hasWarning = true;
                 }
             }
             
-            if (hasDanger) {
+            if (hasExpired) {
+                return { level: 'danger', class: 'danger-expired', urgent: true, status: '已过期' };
+            } else if (hasDanger) {
                 return { level: 'danger', class: 'danger-critical', urgent: true, status: '紧急' };
             } else if (hasWarning) {
-                return { level: 'warning', class: 'warning', urgent: false, status: '注意' };
+                return { level: 'warning', class: 'warning', urgent: false, status: '即将过期' };
             }
             return { level: 'safe', class: 'safe', urgent: false, status: '安全' };
+        }
+        
+        // 获取物品中最近过期天数
+        function getMinDaysLeft(item) {
+            if (!item.pieces || item.pieces.length === 0) return Infinity;
+            var minDays = Infinity;
+            for (var i = 0; i < item.pieces.length; i++) {
+                var days = getDaysLeft(item.pieces[i].expireDate);
+                if (days < minDays) minDays = days;
+            }
+            return minDays;
+        }
+        
+        // 判断是否为生鲜即将过期（生鲜在预警天数内但未过期）
+        function isFreshWarning(item) {
+            if (!item.pieces || item.pieces.length === 0) return false;
+            if (!isFreshFood(item.category)) return false;
+            
+            var warningDays = getWarningDaysByCategory(item.category);
+            for (var i = 0; i < item.pieces.length; i++) {
+                var daysLeft = getDaysLeft(item.pieces[i].expireDate);
+                if (daysLeft >= 0 && daysLeft <= warningDays) {
+                    return true;
+                }
+            }
+            return false;
         }
         
         function getItemSummary(item) {
             if (!item.pieces || item.pieces.length === 0) return '共0件';
             
             var total = item.pieces.length;
-            var reminderDays = item.reminderDays || 7;
+            var warningDays = getWarningDaysByCategory(item.category);
+            var isFresh = isFreshFood(item.category);
             var urgentCount = 0;
             
             for (var i = 0; i < item.pieces.length; i++) {
                 var daysLeft = getDaysLeft(item.pieces[i].expireDate);
-                if (daysLeft < 0 || daysLeft <= Math.floor(reminderDays / 2)) {
+                if (daysLeft < 0) {
+                    urgentCount++;
+                } else if (isFresh && daysLeft <= 3) {
+                    urgentCount++;
+                } else if (daysLeft <= warningDays) {
                     urgentCount++;
                 }
             }
@@ -1793,15 +2030,17 @@
             return '共' + total + '件';
         }
         
-        function getPieceStatus(piece, reminderDays) {
+        function getPieceStatus(piece, item) {
             var daysLeft = getDaysLeft(piece.expireDate);
-            reminderDays = reminderDays || 7;
+            var warningDays = item ? getWarningDaysByCategory(item.category) : 7;
+            var isFresh = item ? isFreshFood(item.category) : false;
             
             if (daysLeft < 0) {
                 return { class: 'danger', text: '已过期' + Math.abs(daysLeft) + '天' };
-            } else if (daysLeft <= Math.floor(reminderDays / 2)) {
+            } else if (isFresh && daysLeft <= 3) {
+                // 生鲜3天内为紧急
                 return { class: 'danger', text: '剩余' + daysLeft + '天' };
-            } else if (daysLeft <= reminderDays) {
+            } else if (daysLeft <= warningDays) {
                 return { class: 'warning', text: '剩余' + daysLeft + '天' };
             }
             return { class: 'safe', text: '剩余' + daysLeft + '天' };
@@ -1815,6 +2054,11 @@
                 if (typeFilter !== 'all' && item.type !== typeFilter) continue;
                 if (statusFilter === 'all') {
                     filtered.push(item);
+                } else if (statusFilter === 'danger-fresh') {
+                    // 生鲜即将过期筛选
+                    if (isFreshWarning(item)) {
+                        filtered.push(item);
+                    }
                 } else {
                     var urgency = getItemUrgency(item);
                     if (urgency.level === statusFilter) {
@@ -1823,24 +2067,30 @@
                 }
             }
             
-            // 排序
+            // 智能排序：已过期 > 即将过期（按剩余天数升序） > 正常（按过期日期升序）
             filtered.sort(function(a, b) {
                 var urgencyA = getItemUrgency(a);
                 var urgencyB = getItemUrgency(b);
-                var priority = { danger: 0, warning: 1, safe: 2 };
-                if (priority[urgencyA.level] !== priority[urgencyB.level]) {
-                    return priority[urgencyA.level] - priority[urgencyB.level];
+                var minDaysA = getMinDaysLeft(a);
+                var minDaysB = getMinDaysLeft(b);
+                
+                // 已过期排在最前面（按过期天数降序，即越早过期越靠前）
+                if (minDaysA < 0 && minDaysB < 0) {
+                    return minDaysA - minDaysB; // 都是负数，越小的越紧急
                 }
-                var minDaysA = Infinity;
-                var minDaysB = Infinity;
-                for (var i = 0; i < a.pieces.length; i++) {
-                    var days = getDaysLeft(a.pieces[i].expireDate);
-                    if (days < minDaysA) minDaysA = days;
+                if (minDaysA < 0) return -1; // A已过期，B未过期
+                if (minDaysB < 0) return 1;  // B已过期，A未过期
+                
+                // 即将过期（按剩余天数升序）
+                var warningA = urgencyA.level === 'warning';
+                var warningB = urgencyB.level === 'warning';
+                if (warningA && warningB) {
+                    return minDaysA - minDaysB; // 都是即将过期，按天数升序
                 }
-                for (var j = 0; j < b.pieces.length; j++) {
-                    var days = getDaysLeft(b.pieces[j].expireDate);
-                    if (days < minDaysB) minDaysB = days;
-                }
+                if (warningA) return -1; // A即将过期，B正常
+                if (warningB) return 1;  // B即将过期，A正常
+                
+                // 都是正常物品，按过期日期升序
                 return minDaysA - minDaysB;
             });
             
@@ -1858,20 +2108,20 @@
                 var item = filtered[i];
                 var urgency = getItemUrgency(item);
                 var summary = getItemSummary(item);
-                var typeIcon = item.type === 'food' ? '🍎' : '🧴';
+                var typeIcon = item.type === 'food' ? '🍎' : (item.type === 'skincare' ? '💄' : '🧴');
                 
                 var imgHtml = '';
                 if (item.image) {
                     imgHtml = '<img src="' + item.image + '" class="card-thumb" alt="物品" onclick="showImagePreview(\'' + item.image + '\')">';
                 } else {
-                    imgHtml = '<div class="card-thumb" style="display:flex;align-items:center;justify-content:center;font-size:1.2rem;background:#f5f5f5;">' + typeIcon + '</div>';
+                    imgHtml = '<div class="card-thumb" style="display:flex;align-items:center;justify-content:center;font-size:1.4rem;background:#f5f5f5;">' + typeIcon + '</div>';
                 }
                 
                 var piecesHtml = '';
                 if (item.pieces && item.pieces.length > 0) {
                     for (var j = 0; j < item.pieces.length; j++) {
                         var piece = item.pieces[j];
-                        var status = getPieceStatus(piece, item.reminderDays || 7);
+                        var status = getPieceStatus(piece, item);
                         piecesHtml += '<div class="piece-item">' +
                             '<div class="piece-info">' + (piece.purchaseDate ? '购于' + piece.purchaseDate : '') + ' → ' + piece.expireDate + '</div>' +
                             '<div class="piece-days ' + status.class + '">' + status.text + '</div>' +
@@ -1914,28 +2164,37 @@
         }
         
         function updateStats() {
-            var danger = 0, warning = 0, safe = 0;
+            var danger = 0, warning = 0, safe = 0, dangerFresh = 0;
             
             for (var i = 0; i < items.length; i++) {
                 var urgency = getItemUrgency(items[i]);
                 if (urgency.level === 'danger') danger++;
-                else if (urgency.level === 'warning') warning++;
+                else if (urgency.level === 'warning') {
+                    warning++;
+                    // 同时统计生鲜即将过期
+                    if (isFreshWarning(items[i])) {
+                        dangerFresh++;
+                    }
+                }
                 else safe++;
             }
             
             document.getElementById('dangerCount').textContent = danger;
             document.getElementById('warningCount').textContent = warning;
             document.getElementById('safeCount').textContent = safe;
+            document.getElementById('dangerFreshCount').textContent = dangerFresh;
             document.getElementById('allCount').textContent = items.length;
             document.getElementById('typeAllCount').textContent = items.length;
             
-            var foodCount = 0, dailyCount = 0;
+            var foodCount = 0, dailyCount = 0, skincareCount = 0;
             for (var i = 0; i < items.length; i++) {
                 if (items[i].type === 'food') foodCount++;
-                else dailyCount++;
+                else if (items[i].type === 'daily') dailyCount++;
+                else if (items[i].type === 'skincare') skincareCount++;
             }
             document.getElementById('foodCount').textContent = foodCount;
             document.getElementById('dailyCount').textContent = dailyCount;
+            document.getElementById('skincareCount').textContent = skincareCount;
         }
         
         function checkUrgentItems() {
@@ -2279,7 +2538,7 @@
                     data.push({
                         '物品名称': item.name,
                         '件数序号': j + 1,
-                        '分类': item.type === 'food' ? '食物' : '日用品',
+                        '分类': item.type === 'food' ? '食物' : item.type === 'skincare' ? '护肤品' : '日用品',
                         '具体分类': item.category,
                         '购买日期': piece.purchaseDate,
                         '过期日期': piece.expireDate,
@@ -2333,7 +2592,7 @@
                         var name = row['物品名称'] || row['name'] || '';
                         var categoryName = row['具体分类'] || row['category'] || '';
                         var type = categoryTypeMap[categoryName] || 
-                                  (row['分类'] === '食物' ? 'food' : row['分类'] === '日用品' ? 'daily' : null);
+                                  (row['分类'] === '食物' ? 'food' : row['分类'] === '日用品' ? 'daily' : row['分类'] === '护肤品' ? 'skincare' : null);
                         
                         if (name && type && categoryName) {
                             var expireDate = row['过期日期'] || '';
