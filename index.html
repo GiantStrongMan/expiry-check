@@ -8,9 +8,9 @@
     <meta name="format-detection" content="telephone=no">
     <title>过期了么 - 物品有效期管理</title>
     
-    <!-- 版本: 2026-04-13-v2 -->
+    <!-- 版本: 2026-04-13-v3 -->
     <!-- Supabase SDK -->
-    <script src="https://unpkg.com/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         // Supabase 配置
         window.SUPABASE_URL = 'https://sgaoexmuoiczshfzbkob.supabase.co';
@@ -1668,7 +1668,7 @@
         var STORAGE_KEY = 'guoqiLeMe_v9';
         
         // ========== Supabase 相关 ==========
-        var supabase = null;
+        var supabaseClient = null;
         var currentUser = null;
         var currentHouseId = null;
         var houses = [];
@@ -1677,7 +1677,7 @@
         // 初始化 Supabase
         function initSupabase() {
             if (typeof window.supabase !== 'undefined') {
-                supabase = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+                supabaseClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
                 console.log('[Supabase] Initialized');
                 return true;
             }
@@ -1687,7 +1687,7 @@
         
         // 检查认证状态
         async function checkAuthState() {
-            if (!supabase) {
+            if (!supabaseClient) {
                 if (!initSupabase()) {
                     setTimeout(checkAuthState, 500);
                     return;
@@ -1695,7 +1695,7 @@
             }
             
             try {
-                var session = await supabase.auth.getSession();
+                var session = await supabaseClient.auth.getSession();
                 if (session.data.session) {
                     currentUser = session.data.session.user;
                     console.log('[Auth] User logged in:', currentUser.email);
@@ -1709,7 +1709,7 @@
             }
             
             // 监听认证状态变化
-            supabase.auth.onAuthStateChange(async function(event, session) {
+            supabaseClient.auth.onAuthStateChange(async function(event, session) {
                 console.log('[Auth] State changed:', event);
                 if (event === 'SIGNED_IN' && session) {
                     currentUser = session.user;
@@ -1812,7 +1812,7 @@
             
             try {
                 if (isRegisterMode) {
-                    var signUpResult = await supabase.auth.signUp({
+                    var signUpResult = await supabaseClient.auth.signUp({
                         email: email,
                         password: password
                     });
@@ -1824,7 +1824,7 @@
                     showToast('注册成功！请查收验证邮件');
                     closeAuthModal();
                 } else {
-                    var signInResult = await supabase.auth.signInWithPassword({
+                    var signInResult = await supabaseClient.auth.signInWithPassword({
                         email: email,
                         password: password
                     });
@@ -1849,7 +1849,7 @@
         // 处理登出
         async function handleLogout() {
             try {
-                await supabase.auth.signOut();
+                await supabaseClient.auth.signOut();
                 showToast('已退出登录');
             } catch (err) {
                 console.error('[Auth] Logout error:', err);
@@ -1960,7 +1960,7 @@
                     
                     if (!existsInCloud) {
                         // 同步新数据到云端
-                        await supabase.from('items').insert({
+                        await supabaseClient.from('items').insert({
                             house_id: currentHouseId,
                             local_id: localItem.id,
                             name: localItem.name,
@@ -2063,7 +2063,7 @@
                         var item = items[i];
                         if (cloudIds.indexOf(item.id) === -1) {
                             // 新增到云端
-                            await supabase.from('items').insert({
+                            await supabaseClient.from('items').insert({
                                 house_id: currentHouseId,
                                 local_id: item.id,
                                 name: item.name,
