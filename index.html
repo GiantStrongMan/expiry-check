@@ -1,0 +1,2415 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="format-detection" content="telephone=no">
+    <title>过期了么 - 物品有效期管理</title>
+    <script>
+        // 延迟加载 SheetJS，避免阻塞渲染
+        window.onload = function() {
+            var script = document.createElement('script');
+            script.src = 'https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js';
+            script.onerror = function() {
+                console.log('SheetJS loaded failed, export will not work');
+                window.XLSX = null;
+            };
+            document.head.appendChild(script);
+        };
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        :root {
+            --primary: #22c55e;
+            --primary-dark: #16a34a;
+            --danger: #ef4444;
+            --danger-bg: #fef2f2;
+            --danger-light: #fecaca;
+            --warning: #f59e0b;
+            --warning-bg: #fffbeb;
+            --warning-light: #fde68a;
+            --safe: #22c55e;
+            --safe-bg: #f0fdf4;
+            --bg: #f0f9f4;
+            --card-bg: #ffffff;
+            --text: #1f2937;
+            --text-light: #6b7280;
+            --text-lighter: #9ca3af;
+            --border: #e5e7eb;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            font-size: 16px;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        /* 顶部导航 */
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 12px 16px;
+            text-align: center;
+            position: -webkit-sticky;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-content {
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            -webkit-box-pack: center;
+            -ms-flex-pack: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        
+        .header-icon { font-size: 1.1rem; }
+        
+        .header h1 {
+            font-size: 1rem;
+            font-weight: 700;
+        }
+        
+        .container {
+            max-width: 520px;
+            margin: 0 auto;
+            padding: 14px 12px 40px;
+        }
+        
+        /* 统计卡片 */
+        .stats-bar {
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            gap: 6px;
+            margin-bottom: 14px;
+        }
+        
+        .stat-item {
+            -webkit-box-flex: 1;
+            -ms-flex: 1;
+            flex: 1;
+            background: var(--card-bg);
+            border-radius: 10px;
+            padding: 10px 4px;
+            text-align: center;
+            border: 2px solid transparent;
+            cursor: pointer;
+        }
+        
+        .stat-item.active {
+            -webkit-transform: scale(1.03);
+            -ms-transform: scale(1.03);
+            transform: scale(1.03);
+        }
+        
+        .stat-item.all.active { border-color: var(--primary); background: var(--safe-bg); }
+        .stat-item.danger.active { border-color: var(--danger); background: var(--danger-bg); }
+        .stat-item.warning.active { border-color: var(--warning); background: var(--warning-bg); }
+        .stat-item.safe.active { border-color: var(--safe); background: var(--safe-bg); }
+        
+        .stat-item .num {
+            font-size: 1.4rem;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 2px;
+        }
+        
+        .stat-item.danger .num { color: var(--danger); }
+        .stat-item.warning .num { color: var(--warning); }
+        .stat-item.safe .num, .stat-item.all .num { color: var(--primary); }
+        
+        .stat-item .label {
+            font-size: 0.65rem;
+            color: var(--text-light);
+            font-weight: 500;
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            -webkit-box-pack: center;
+            -ms-flex-pack: center;
+            justify-content: center;
+            gap: 3px;
+        }
+        
+        .stat-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--primary);
+        }
+        
+        .stat-item.danger .stat-dot { background: var(--danger); }
+        .stat-item.warning .stat-dot { background: var(--warning); }
+        .stat-item.safe .stat-dot { background: var(--safe); }
+        
+        /* 分类标签 */
+        .tabs {
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+        
+        .tab-btn {
+            -webkit-box-flex: 1;
+            -ms-flex: 1;
+            flex: 1;
+            padding: 10px 8px;
+            border: none;
+            background: var(--card-bg);
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-light);
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-orient: vertical;
+            -webkit-box-direction: normal;
+            -ms-flex-direction: column;
+            flex-direction: column;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            gap: 2px;
+        }
+        
+        .tab-btn .icon { font-size: 1.1rem; }
+        
+        .tab-btn .count {
+            background: var(--bg);
+            padding: 1px 6px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--text-light);
+        }
+        
+        .tab-btn.active {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+        }
+        
+        .tab-btn.active .count { background: rgba(255,255,255,0.3); color: white; }
+        
+        /* 按钮 */
+        .add-btn {
+            width: 100%;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            -webkit-box-pack: center;
+            -ms-flex-pack: center;
+            justify-content: center;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+        
+        .action-btns {
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        
+        .action-btn {
+            -webkit-box-flex: 1;
+            -ms-flex: 1;
+            flex: 1;
+            padding: 10px;
+            background: var(--card-bg);
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text);
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            -webkit-box-pack: center;
+            -ms-flex-pack: center;
+            justify-content: center;
+            gap: 4px;
+        }
+        
+        .action-btn input { display: none; }
+        
+        /* 物品列表 */
+        .item-list { display: -webkit-box; display: -ms-flexbox; display: flex; -webkit-box-orient: vertical; -webkit-box-direction: normal; -ms-flex-direction: column; flex-direction: column; gap: 10px; }
+        
+        /* 卡片 */
+        .item-card {
+            background: var(--card-bg);
+            border-radius: 14px;
+            padding: 14px;
+            position: relative;
+        }
+        
+        .item-card.danger-critical, .item-card.danger-expired {
+            border: 2px solid var(--danger);
+            background: -webkit-gradient(linear, left top, right top, from(var(--danger-bg)), to(var(--card-bg)));
+            background: linear-gradient(to right, var(--danger-bg), var(--card-bg) 30%);
+        }
+        
+        .item-card.danger-critical {
+            -webkit-animation: pulse-danger 2s infinite;
+            animation: pulse-danger 2s infinite;
+        }
+        
+        @keyframes pulse-danger {
+            0%, 100% { box-shadow: 0 4px 20px rgba(239,68,68,0.15); }
+            50% { box-shadow: 0 4px 25px rgba(239,68,68,0.3); }
+        }
+        
+        .item-card.warning {
+            border: 2px solid var(--warning);
+            background: -webkit-gradient(linear, left top, right top, from(var(--warning-bg)), to(var(--card-bg)));
+            background: linear-gradient(to right, var(--warning-bg), var(--card-bg) 30%);
+        }
+        
+        .item-card.safe { border: 2px solid var(--safe); }
+        
+        .card-main {
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .card-thumb {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            object-fit: cover;
+            border: 2px solid var(--border);
+            cursor: pointer;
+            -webkit-flex-shrink: 0;
+            -ms-flex-negative: 0;
+            flex-shrink: 0;
+        }
+        
+        .card-content { -webkit-box-flex: 1; -ms-flex: 1; flex: 1; min-width: 0; }
+        
+        .card-name {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .card-category { font-size: 0.8rem; color: var(--text-light); margin-bottom: 4px; }
+        .card-summary { font-size: 0.85rem; color: var(--text); margin-bottom: 6px; }
+        .card-summary .warn { color: var(--danger); font-weight: 600; }
+        
+        .card-status {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 16px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .card-status.danger { background: var(--danger); color: white; }
+        .card-status.warning { background: var(--warning); color: white; }
+        .card-status.safe { background: var(--safe); color: white; }
+        
+        .card-actions {
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-orient: vertical;
+            -webkit-box-direction: normal;
+            -ms-flex-direction: column;
+            flex-direction: column;
+            gap: 4px;
+            -webkit-flex-shrink: 0;
+            -ms-flex-negative: 0;
+            flex-shrink: 0;
+        }
+        
+        .card-actions button {
+            width: 30px;
+            height: 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        
+        .edit-btn { background: #eff6ff; color: #2563eb; }
+        .delete-btn { background: var(--danger-bg); color: var(--danger); }
+        
+        /* 展开详情 */
+        .card-detail { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+        .card-detail.show { display: block; }
+        
+        .piece-item {
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            -webkit-box-pack: justify;
+            -ms-flex-pack: justify;
+            justify-content: space-between;
+            padding: 8px 10px;
+            background: var(--bg);
+            border-radius: 8px;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+        }
+        
+        .piece-item .piece-info { color: var(--text); }
+        .piece-item .piece-days { font-weight: 600; }
+        .piece-item .piece-days.danger { color: var(--danger); }
+        .piece-item .piece-days.warning { color: var(--warning); }
+        .piece-item .piece-days.safe { color: var(--safe); }
+        
+        .piece-actions { display: -webkit-box; display: -ms-flexbox; display: flex; gap: 6px; }
+        .piece-actions button { width: 26px; height: 26px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.75rem; }
+        
+        .add-piece-btn {
+            width: 100%;
+            padding: 8px;
+            background: var(--safe-bg);
+            border: 2px dashed var(--primary);
+            border-radius: 8px;
+            color: var(--primary);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 50px 20px;
+            background: var(--card-bg);
+            border-radius: 16px;
+        }
+        
+        .empty-state .icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.6; }
+        .empty-state p { font-size: 0.95rem; color: var(--text-light); }
+        
+        /* 模态框 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            -webkit-box-pack: center;
+            -ms-flex-pack: center;
+            justify-content: center;
+            -webkit-box-align: end;
+            -ms-flex-align: end;
+            align-items: flex-end;
+        }
+        
+        .modal.show { display: -webkit-box; display: -ms-flexbox; display: flex; }
+        
+        .modal-content {
+            background: var(--card-bg);
+            border-radius: 20px 20px 0 0;
+            width: 100%;
+            max-width: 520px;
+            max-height: 92vh;
+            overflow-y: auto;
+            -webkit-animation: slideUp 0.35s ease;
+            animation: slideUp 0.35s ease;
+        }
+        
+        @keyframes slideUp {
+            from { -webkit-transform: translateY(100%); transform: translateY(100%); }
+            to { -webkit-transform: translateY(0); transform: translateY(0); }
+        }
+        
+        .modal-header {
+            padding: 16px 20px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-pack: justify;
+            -ms-flex-pack: justify;
+            justify-content: space-between;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            position: -webkit-sticky;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .modal-header h2 { font-size: 1.05rem; font-weight: 700; }
+        
+        .modal-header .close-btn {
+            width: 30px;
+            height: 30px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        
+        .modal-body { padding: 18px; }
+        .form-group { margin-bottom: 12px; }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--text);
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 11px 12px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 0.9rem;
+            background: var(--card-bg);
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        /* 语音输入框样式 */
+        .input-with-voice {
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .input-with-voice input {
+            -webkit-box-flex: 1;
+            -ms-flex: 1;
+            flex: 1;
+        }
+        
+        .voice-btn {
+            width: 44px;
+            height: 44px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            background: var(--card-bg);
+            cursor: pointer;
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            -webkit-box-pack: center;
+            -ms-flex-pack: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            color: var(--text-light);
+            -webkit-transition: all 0.2s ease;
+            transition: all 0.2s ease;
+            -webkit-flex-shrink: 0;
+            -ms-flex-negative: 0;
+            flex-shrink: 0;
+        }
+        
+        .voice-btn:active {
+            -webkit-transform: scale(0.95);
+            -ms-transform: scale(0.95);
+            transform: scale(0.95);
+        }
+        
+        .voice-btn.recording {
+            background: var(--danger);
+            border-color: var(--danger);
+            color: white;
+            -webkit-animation: pulse-recording 1s infinite;
+            animation: pulse-recording 1s infinite;
+        }
+        
+        @keyframes pulse-recording {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+            50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); }
+        }
+        
+        .voice-btn.supported {
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+        
+        /* 语音识别中状态 */
+        .voice-status {
+            display: none;
+            padding: 8px 12px;
+            background: linear-gradient(135deg, var(--warning-bg), #fef3c7);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-size: 0.85rem;
+            color: #92400e;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .voice-status.show { display: -webkit-box; display: -ms-flexbox; display: flex; }
+        
+        .voice-wave {
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            gap: 2px;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+        }
+        
+        .voice-wave span {
+            width: 3px;
+            height: 12px;
+            background: var(--warning);
+            border-radius: 2px;
+            -webkit-animation: wave 0.6s ease-in-out infinite;
+            animation: wave 0.6s ease-in-out infinite;
+        }
+        
+        .voice-wave span:nth-child(1) { -webkit-animation-delay: 0s; animation-delay: 0s; }
+        .voice-wave span:nth-child(2) { -webkit-animation-delay: 0.1s; animation-delay: 0.1s; }
+        .voice-wave span:nth-child(3) { -webkit-animation-delay: 0.2s; animation-delay: 0.2s; }
+        .voice-wave span:nth-child(4) { -webkit-animation-delay: 0.3s; animation-delay: 0.3s; }
+        .voice-wave span:nth-child(5) { -webkit-animation-delay: 0.4s; animation-delay: 0.4s; }
+        
+        @keyframes wave {
+            0%, 100% { height: 6px; }
+            50% { height: 18px; }
+        }
+        
+        /* 解析结果提示 */
+        .parse-result {
+            display: none;
+            padding: 10px 12px;
+            background: linear-gradient(135deg, var(--safe-bg), #d1fae5);
+            border-radius: 10px;
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+            color: var(--primary-dark);
+            border-left: 4px solid var(--primary);
+        }
+        
+        .parse-result.show { display: block; }
+        
+        .parse-result .parsed-info {
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px dashed var(--primary);
+            font-size: 0.8rem;
+        }
+        
+        .parse-result .parsed-item {
+            display: inline-block;
+            background: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin: 2px 4px 2px 0;
+        }
+        
+        .form-row { display: -webkit-box; display: -ms-flexbox; display: flex; gap: 10px; }
+        .form-row > * { -webkit-box-flex: 1; -ms-flex: 1; flex: 1; }
+        .form-row-3 { display: -webkit-box; display: -ms-flexbox; display: flex; gap: 8px; }
+        .form-row-3 > * { -webkit-box-flex: 1; -ms-flex: 1; flex: 1; }
+        
+        .suggestion-tip {
+            background: linear-gradient(135deg, var(--safe-bg), #d1fae5);
+            padding: 10px 12px;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+            color: var(--primary-dark);
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            gap: 6px;
+            border-left: 4px solid var(--primary);
+        }
+        
+        .suggestion-tip.warning-tip {
+            background: linear-gradient(135deg, var(--warning-bg), #fef3c7);
+            border-left-color: var(--warning);
+            color: #92400e;
+        }
+        
+        .image-upload {
+            border: 2px dashed var(--border);
+            border-radius: 10px;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            background: #fafafa;
+        }
+        
+        .image-upload img { max-width: 100%; max-height: 100px; border-radius: 8px; margin-top: 6px; }
+        .image-upload input { display: none; }
+        .upload-hint { font-size: 0.8rem; color: var(--text-light); }
+        
+        .modal-footer {
+            padding: 12px 18px;
+            padding-bottom: max(12px, env(safe-area-inset-bottom));
+            border-top: 1px solid var(--border);
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .modal-footer .btn {
+            -webkit-box-flex: 1;
+            -ms-flex: 1;
+            flex: 1;
+            padding: 11px 16px;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .btn-cancel { background: var(--bg); color: var(--text); }
+        .btn-submit { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white; }
+        
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 25px;
+            left: 50%;
+            background: #1f2937;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            z-index: 3000;
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: none;
+            max-width: 90%;
+        }
+        
+        .toast.show { display: block; }
+        
+        /* 弹窗 */
+        .alert-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 2000;
+            -webkit-box-pack: center;
+            -ms-flex-pack: center;
+            justify-content: center;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .alert-modal.show { display: -webkit-box; display: -ms-flexbox; display: flex; }
+        
+        .alert-content {
+            background: white;
+            border-radius: 18px;
+            padding: 24px;
+            max-width: 320px;
+            width: 100%;
+            text-align: center;
+        }
+        
+        .alert-icon { font-size: 3rem; margin-bottom: 12px; }
+        .alert-title { font-size: 1.1rem; font-weight: 700; color: var(--danger); margin-bottom: 8px; }
+        .alert-message { font-size: 0.95rem; color: var(--text); margin-bottom: 18px; line-height: 1.5; }
+        
+        .alert-buttons { display: -webkit-box; display: -ms-flexbox; display: flex; gap: 10px; }
+        .alert-buttons button { -webkit-box-flex: 1; -ms-flex: 1; flex: 1; padding: 10px; border: none; border-radius: 10px; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+        .alert-btn-cancel { background: var(--bg); color: var(--text); }
+        .alert-btn-confirm { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; }
+        .alert-btn-single { background: linear-gradient(135deg, var(--danger), #dc2626); color: white; width: 100%; }
+        
+        /* 图片预览 */
+        .img-preview-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 3000;
+            -webkit-box-pack: center;
+            -ms-flex-pack: center;
+            justify-content: center;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .img-preview-modal.show { display: -webkit-box; display: -ms-flexbox; display: flex; }
+        .img-preview-modal img { max-width: 95%; max-height: 95%; border-radius: 12px; }
+        .img-preview-modal .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            color: white;
+            font-size: 1.6rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+        
+        @media (max-width: 480px) {
+            .header h1 { font-size: 0.95rem; }
+            .container { padding: 12px 12px 32px; }
+            .form-row, .form-row-3 { -webkit-box-orient: vertical; -webkit-box-direction: normal; -ms-flex-direction: column; flex-direction: column; }
+            .card-thumb { width: 42px; height: 42px; }
+            .card-name { font-size: 0.95rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <span class="header-icon">⏰</span>
+            <h1>过期了么</h1>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="stats-bar">
+            <div class="stat-item all active" onclick="filterByStatus('all')">
+                <div class="num" id="allCount">0</div>
+                <div class="label"><span class="stat-dot"></span>全部</div>
+            </div>
+            <div class="stat-item danger" onclick="filterByStatus('danger')">
+                <div class="num" id="dangerCount">0</div>
+                <div class="label"><span class="stat-dot"></span>紧急</div>
+            </div>
+            <div class="stat-item warning" onclick="filterByStatus('warning')">
+                <div class="num" id="warningCount">0</div>
+                <div class="label"><span class="stat-dot"></span>注意</div>
+            </div>
+            <div class="stat-item safe" onclick="filterByStatus('safe')">
+                <div class="num" id="safeCount">0</div>
+                <div class="label"><span class="stat-dot"></span>安全</div>
+            </div>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab-btn active" onclick="filterByType('all')">
+                <span class="icon">📋</span>
+                <span>全部</span>
+                <span class="count" id="typeAllCount">0</span>
+            </button>
+            <button class="tab-btn" onclick="filterByType('food')">
+                <span class="icon">🍎</span>
+                <span>食物</span>
+                <span class="count" id="foodCount">0</span>
+            </button>
+            <button class="tab-btn" onclick="filterByType('daily')">
+                <span class="icon">🧴</span>
+                <span>日用品</span>
+                <span class="count" id="dailyCount">0</span>
+            </button>
+        </div>
+        
+        <button class="add-btn" onclick="openModal()">
+            <span>➕</span><span>添加物品</span>
+        </button>
+        
+        <div class="action-btns">
+            <button class="action-btn" onclick="exportToExcel()">
+                <span>📤</span><span>导出</span>
+            </button>
+            <button class="action-btn" onclick="document.getElementById('importFile').click()">
+                <span>📥</span><span>导入</span>
+            </button>
+            <input type="file" id="importFile" accept=".xlsx,.xls" style="display:none" onchange="importFromExcel(this)">
+        </div>
+        
+        <div class="item-list" id="itemList"></div>
+    </div>
+    
+    <!-- 模态框 -->
+    <div class="modal" id="itemModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">➕ 添加物品</h2>
+                <button class="close-btn" onclick="closeModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="itemId">
+                
+                <!-- 语音识别状态 -->
+                <div class="voice-status" id="voiceStatus">
+                    <div class="voice-wave">
+                        <span></span><span></span><span></span><span></span><span></span>
+                    </div>
+                    <span id="voiceStatusText">正在听...</span>
+                </div>
+                
+                <!-- 解析结果提示 -->
+                <div class="parse-result" id="parseResult">
+                    <span>🎤</span>
+                    <span id="parseResultText">已识别完成</span>
+                    <div class="parsed-info" id="parsedInfo"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label>物品名称</label>
+                    <div class="input-with-voice">
+                        <input type="text" id="itemName" required placeholder="请输入物品名称，或点击麦克风语音录入">
+                        <button type="button" class="voice-btn" id="voiceBtn" onclick="toggleVoiceInput()" title="语音录入">🎤</button>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>分类</label>
+                        <select id="itemType" required onchange="onTypeChange()">
+                            <option value="">请选择</option>
+                            <option value="food">🍎 食物</option>
+                            <option value="daily">🧴 日用品</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>具体分类</label>
+                        <select id="itemCategory" required onchange="onCategoryChange()">
+                            <option value="">请先选择大类</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="suggestion-tip" id="suggestionTip" style="display:none;">
+                    <span>💡</span>
+                    <span id="suggestionText"></span>
+                </div>
+                
+                <div class="form-row-3">
+                    <div class="form-group">
+                        <label>购买日期</label>
+                        <input type="date" id="purchaseDate" onchange="autoCalculateExpireDate()">
+                    </div>
+                    <div class="form-group">
+                        <label>有效期(天)</label>
+                        <input type="number" id="validDays" min="0" placeholder="天数" onchange="autoCalculateExpireDate()">
+                    </div>
+                    <div class="form-group">
+                        <label>过期日期</label>
+                        <input type="date" id="expireDate" required onchange="onExpireDateChange()">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>临期提醒</label>
+                        <input type="number" id="reminderDays" min="1" value="7" placeholder="天数">
+                    </div>
+                    <div class="form-group">
+                        <label>存放位置</label>
+                        <input type="text" id="itemLocation" placeholder="如：冰箱">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>物品图片（可选）</label>
+                    <div class="image-upload" onclick="document.getElementById('itemImage').click()">
+                        <input type="file" id="itemImage" accept="image/*" onchange="previewImage(this)">
+                        <div id="uploadText" class="upload-hint">📷 点击上传</div>
+                        <div id="imagePreview"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-cancel" onclick="closeModal()">取消</button>
+                <button class="btn btn-submit" onclick="saveItem()">保存</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 重复确认 -->
+    <div class="alert-modal" id="duplicateModal">
+        <div class="alert-content">
+            <div class="alert-icon">⚠️</div>
+            <div class="alert-title">检测到重复物品</div>
+            <div class="alert-message" id="duplicateMessage"></div>
+            <div class="alert-buttons">
+                <button class="alert-btn-cancel" onclick="closeDuplicateModal()">取消</button>
+                <button class="alert-btn-confirm" onclick="confirmDuplicate()">确认新增</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 紧急提醒 -->
+    <div class="alert-modal" id="alertModal">
+        <div class="alert-content">
+            <div class="alert-icon">⚠️</div>
+            <div class="alert-title" id="alertTitle">紧急提醒</div>
+            <div class="alert-message" id="alertMessage"></div>
+            <button class="alert-btn-single" onclick="closeAlert()">我知道了</button>
+        </div>
+    </div>
+    
+    <!-- 图片预览 -->
+    <div class="img-preview-modal" id="imgPreviewModal">
+        <button class="close-btn" onclick="closeImagePreview()">✕</button>
+        <img id="previewImage" src="" alt="预览">
+    </div>
+    
+    <div class="toast" id="toast"></div>
+
+    <script>
+        var STORAGE_KEY = 'guoqiLeMe_v9';
+        
+        var perishableFoods = ['生鲜', '水果', '蔬菜', '肉类', '熟食'];
+        
+        var categories = {
+            food: ['生鲜', '乳制品', '水果', '蔬菜', '肉类', '饮料', '零食', '调味品', '熟食', '其他'],
+            daily: ['内裤', '内衣', '牙刷', '浴巾', '毛巾', '纸巾', '洗护用品', '护肤品', '化妆品', '清洁用品', '其他']
+        };
+        
+        var suggestedExpiry = {
+            food: {
+                '生鲜': 3, '乳制品': 7, '水果': 7, '蔬菜': 5, '肉类': 3,
+                '饮料': 180, '零食': 180, '调味品': 365, '熟食': 2, '其他': 30
+            },
+            daily: {
+                '内裤': 90, '内衣': 90, '牙刷': 90, '浴巾': 180, '毛巾': 90,
+                '纸巾': 365, '洗护用品': 365, '护肤品': 180, '化妆品': 730, '清洁用品': 365, '其他': 365
+            }
+        };
+        
+        var defaultReminderDays = {
+            food: {
+                '生鲜': 1, '水果': 1, '蔬菜': 1, '肉类': 1, '熟食': 1,
+                '乳制品': 3, '饮料': 7, '零食': 7, '调味品': 14, '其他': 7
+            },
+            daily: {
+                '内裤': 7, '内衣': 7, '牙刷': 7, '浴巾': 14, '毛巾': 7,
+                '纸巾': 14, '洗护用品': 14, '护肤品': 14, '化妆品': 30, '清洁用品': 14, '其他': 14
+            }
+        };
+        
+        var categoryTypeMap = {
+            '生鲜': 'food', '乳制品': 'food', '水果': 'food', '蔬菜': 'food', '肉类': 'food',
+            '饮料': 'food', '零食': 'food', '调味品': 'food', '熟食': 'food', '其他': 'food',
+            '内裤': 'daily', '内衣': 'daily', '牙刷': 'daily', '浴巾': 'daily', '毛巾': 'daily',
+            '纸巾': 'daily', '洗护用品': 'daily', '护肤品': 'daily', '化妆品': 'daily', '清洁用品': 'daily'
+        };
+        
+        var items = [];
+        var statusFilter = 'all';
+        var typeFilter = 'all';
+        var editingId = null;
+        var pendingItem = null;
+        
+        // 语音识别相关变量
+        var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        var recognition = null;
+        var isRecording = false;
+        var interimTranscript = '';
+        var voiceSupported = false;
+        var voiceBtnElement = null;
+        
+        // 检测是否在安全环境（HTTPS 或 localhost）
+        function isSecureContext() {
+            return window.isSecureContext || 
+                   location.hostname === 'localhost' || 
+                   location.hostname === '127.0.0.1' ||
+                   location.protocol === 'https:' ||
+                   location.protocol === 'file:';
+        }
+        
+        // 检测语音识别支持
+        function checkVoiceSupport() {
+            voiceBtnElement = document.getElementById('voiceBtn');
+            
+            // 检测 API 是否存在
+            if (!SpeechRecognition) {
+                console.log('[Voice] SpeechRecognition API not found');
+                if (voiceBtnElement) {
+                    voiceBtnElement.style.display = 'none';
+                }
+                return false;
+            }
+            
+            // 检测安全环境
+            if (!isSecureContext()) {
+                console.log('[Voice] Not in secure context (needs HTTPS)');
+                if (voiceBtnElement) {
+                    voiceBtnElement.style.display = 'none';
+                }
+                return false;
+            }
+            
+            // 检测麦克风是否存在
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                console.log('[Voice] getUserMedia not available');
+                if (voiceBtnElement) {
+                    voiceBtnElement.style.display = 'none';
+                }
+                return false;
+            }
+            
+            console.log('[Voice] Voice input is supported');
+            if (voiceBtnElement) {
+                voiceBtnElement.classList.add('supported');
+            }
+            voiceSupported = true;
+            return true;
+        }
+        
+        // 初始化语音识别
+        function initSpeechRecognition() {
+            if (!SpeechRecognition) {
+                console.log('[Voice] SpeechRecognition not supported');
+                return false;
+            }
+            
+            try {
+                recognition = new SpeechRecognition();
+            } catch (e) {
+                console.log('[Voice] Failed to create SpeechRecognition:', e);
+                return false;
+            }
+            
+            recognition.lang = 'zh-CN';
+            recognition.continuous = false;
+            recognition.interimResults = true;
+            recognition.maxAlternatives = 1;
+            
+            recognition.onstart = function() {
+                console.log('[Voice] Recognition started');
+                isRecording = true;
+                updateVoiceButton();
+                document.getElementById('voiceStatus').classList.add('show');
+                document.getElementById('voiceStatusText').textContent = '正在听...请说话';
+                document.getElementById('parseResult').classList.remove('show');
+            };
+            
+            recognition.onresult = function(event) {
+                var result = '';
+                for (var i = event.resultIndex; i < event.results.length; i++) {
+                    result += event.results[i][0].transcript;
+                }
+                interimTranscript = result;
+                document.getElementById('voiceStatusText').textContent = result || '正在听...请说话';
+                
+                // 如果是最终结果
+                if (event.results[event.results.length - 1].isFinal) {
+                    console.log('[Voice] Final result:', result);
+                    processVoiceResult(result);
+                }
+            };
+            
+            recognition.onerror = function(event) {
+                console.log('[Voice] Recognition error:', event.error);
+                isRecording = false;
+                updateVoiceButton();
+                document.getElementById('voiceStatus').classList.remove('show');
+                
+                switch (event.error) {
+                    case 'not-allowed':
+                    case 'permission-denied':
+                        showToast('请允许麦克风权限后重试');
+                        break;
+                    case 'no-speech':
+                        showToast('未检测到语音，请重试');
+                        break;
+                    case 'network':
+                        showToast('网络错误，请检查网络连接');
+                        break;
+                    case 'audio-capture':
+                        showToast('未检测到麦克风设备');
+                        break;
+                    case 'aborted':
+                        // 用户主动停止，不提示
+                        break;
+                    default:
+                        showToast('语音识别出错，请重试');
+                }
+            };
+            
+            recognition.onend = function() {
+                console.log('[Voice] Recognition ended');
+                isRecording = false;
+                updateVoiceButton();
+                document.getElementById('voiceStatus').classList.remove('show');
+            };
+            
+            return true;
+        }
+        
+        // 更新语音按钮状态
+        function updateVoiceButton() {
+            var btn = document.getElementById('voiceBtn');
+            if (!btn) return;
+            
+            if (isRecording) {
+                btn.classList.add('recording');
+                btn.textContent = '⏹';
+            } else {
+                btn.classList.remove('recording');
+                btn.textContent = '🎤';
+            }
+        }
+        
+        // 切换语音输入
+        function toggleVoiceInput() {
+            console.log('[Voice] toggleVoiceInput called, isRecording:', isRecording);
+            
+            // 首次点击时先检查支持情况
+            if (!voiceSupported) {
+                if (!checkVoiceSupport()) {
+                    showToast('您的浏览器不支持语音输入');
+                    return;
+                }
+            }
+            
+            if (isRecording) {
+                // 停止录音
+                console.log('[Voice] Stopping recognition');
+                if (recognition) {
+                    recognition.stop();
+                }
+            } else {
+                // 开始录音
+                console.log('[Voice] Starting recognition');
+                
+                // 先尝试获取麦克风权限
+                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                    console.log('[Voice] Requesting microphone permission');
+                    navigator.mediaDevices.getUserMedia({ audio: true })
+                        .then(function(stream) {
+                            console.log('[Voice] Microphone permission granted');
+                            // 停止stream，因为 SpeechRecognition 会重新获取
+                            stream.getTracks().forEach(function(track) {
+                                track.stop();
+                            });
+                            startRecognition();
+                        })
+                        .catch(function(err) {
+                            console.log('[Voice] Microphone permission denied:', err);
+                            showToast('请允许麦克风权限');
+                        });
+                } else {
+                    startRecognition();
+                }
+            }
+        }
+        
+        // 开始语音识别
+        function startRecognition() {
+            if (!recognition) {
+                var initResult = initSpeechRecognition();
+                if (!initResult) {
+                    showToast('语音识别初始化失败');
+                    return;
+                }
+            }
+            
+            interimTranscript = '';
+            
+            try {
+                console.log('[Voice] Calling recognition.start()');
+                recognition.start();
+            } catch (e) {
+                console.log('[Voice] Start error:', e);
+                // 可能已经在运行，先停止再重启
+                try {
+                    recognition.stop();
+                    setTimeout(function() {
+                        try {
+                            recognition.start();
+                        } catch (e2) {
+                            console.log('[Voice] Retry start failed:', e2);
+                            showToast('语音识别启动失败');
+                        }
+                    }, 100);
+                } catch (e2) {
+                    console.log('[Voice] Stop also failed:', e2);
+                    recognition = null;
+                    initSpeechRecognition();
+                    try {
+                        recognition.start();
+                    } catch (e3) {
+                        console.log('[Voice] Final start failed:', e3);
+                        showToast('语音识别启动失败');
+                    }
+                }
+            }
+        }
+        
+        // 处理语音识别结果
+        function processVoiceResult(text) {
+            if (!text || text.trim() === '') {
+                showToast('未识别到内容');
+                return;
+            }
+            
+            var parsed = parseVoiceInput(text);
+            applyParsedResult(parsed);
+            
+            // 显示解析结果
+            var parseResult = document.getElementById('parseResult');
+            var parseResultText = document.getElementById('parseResultText');
+            var parsedInfo = document.getElementById('parsedInfo');
+            
+            parseResultText.textContent = '已识别：' + text;
+            
+            var infoHtml = '';
+            if (parsed.name) {
+                infoHtml += '<span class="parsed-item">名称：' + parsed.name + '</span>';
+            }
+            if (parsed.days) {
+                infoHtml += '<span class="parsed-item">有效期：' + parsed.days + '天</span>';
+            }
+            if (parsed.reminderDays) {
+                infoHtml += '<span class="parsed-item">提醒：倒数' + parsed.reminderDays + '天</span>';
+            }
+            if (parsed.location) {
+                infoHtml += '<span class="parsed-item">位置：' + parsed.location + '</span>';
+            }
+            
+            parsedInfo.innerHTML = infoHtml || '<span style="color:#9ca3af;">请手动填写其他信息</span>';
+            parseResult.classList.add('show');
+            
+            showToast('语音识别完成');
+        }
+        
+        // 解析语音输入
+        function parseVoiceInput(text) {
+            var result = {
+                name: '',
+                days: 0,
+                reminderDays: 0,
+                location: '',
+                category: ''
+            };
+            
+            // 移除句末标点
+            text = text.replace(/[。！？，、；：""''【】（)（）]/g, ' ').trim();
+            
+            // 时间词到天数的映射
+            var timeMap = {
+                '秒': 0.00001157,
+                '分钟': 0.000694,
+                '半小时': 0.5,
+                '一刻钟': 0.25,
+                '小时': 0.0417,
+                '时辰': 2,
+                '天': 1,
+                '日': 1,
+                '周': 7,
+                '星期': 7,
+                '礼拜': 7,
+                '个月': 30,
+                '月': 30,
+                '季度': 90,
+                '季度': 90,
+                '季': 90,
+                '半年': 180,
+                '学期': 120,
+                '学期': 120,
+                '年': 365,
+                '周岁': 365
+            };
+            
+            // 数字映射
+            var numMap = {
+                '零': 0, '一': 1, '二': 2, '两': 2, '三': 3, '四': 4, '五': 5,
+                '六': 6, '七': 7, '八': 8, '九': 9, '十': 10, '百': 100,
+                '半': 0.5, '几个': 3, '若干': 5, '几天': 3
+            };
+            
+            // 解析阿拉伯数字
+            var arabicNum = text.match(/(\d+(?:\.\d+)?)/);
+            if (arabicNum) {
+                var num = parseFloat(arabicNum[1]);
+                // 检查后面是否有时间单位
+                var afterNum = text.substring(arabicNum.index + arabicNum[0].length);
+                
+                for (var unit in timeMap) {
+                    if (afterNum.indexOf(unit) !== -1) {
+                        var days = Math.round(num * timeMap[unit]);
+                        if (days > 0 && days < 1000) {
+                            result.days = days;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // 解析中文数字
+            for (var cn in numMap) {
+                if (text.indexOf(cn) !== -1) {
+                    var afterCn = text.substring(text.indexOf(cn) + cn.length);
+                    for (var unit in timeMap) {
+                        if (afterCn.indexOf(unit) !== -1) {
+                            var days = Math.round(numMap[cn] * timeMap[unit]);
+                            if (days > 0 && days < 1000 && days > result.days) {
+                                result.days = days;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // 特殊表达处理
+            if (text.indexOf('尽快') !== -1 || text.indexOf('尽快用') !== -1 || text.indexOf('尽快吃') !== -1) {
+                result.days = 3;
+            }
+            if (text.indexOf('尽快喝') !== -1) {
+                result.days = 1;
+            }
+            if (text.indexOf('别过期') !== -1 || text.indexOf('别坏') !== -1) {
+                result.days = 7;
+            }
+            
+            // 提取物品名称
+            var namePatterns = [
+                /^(.+?)(?:，|,|。|有效期|保质期|放到|放于|放在|放到|有效|保质|提醒|天|个月|周|过期)/,
+                /^(?:这是|买了|买|有|放|放个?|新增)(?:个|件|箱|瓶|袋|盒)?(.+?)(?:，|,|。|$)/,
+                /^(.+?)(?:吧|呀|哦|呢|啊)/
+            ];
+            
+            for (var i = 0; i < namePatterns.length; i++) {
+                var match = text.match(namePatterns[i]);
+                if (match && match[1]) {
+                    var potentialName = match[1].trim();
+                    // 过滤掉明显的描述词
+                    if (potentialName.length >= 2 && 
+                        potentialName !== '个' && 
+                        potentialName !== '件' &&
+                        potentialName !== '箱' &&
+                        !potentialName.match(/^\d/) &&
+                        potentialName.indexOf('有效期') === -1 &&
+                        potentialName.indexOf('保质期') === -1 &&
+                        potentialName.indexOf('提醒') === -1) {
+                        result.name = potentialName;
+                        break;
+                    }
+                }
+            }
+            
+            // 如果没匹配到，尝试取最前面的名词
+            if (!result.name) {
+                var nameKws = ['牛奶', '酸奶', '鸡蛋', '面包', '水果', '蔬菜', '肉', '鱼', '虾', '蛋糕', '饮料',
+                             '水', '茶', '咖啡', '零食', '饼干', '蛋糕', '巧克力', '糖果', '薯片',
+                             '洗发水', '沐浴露', '洗面奶', '面霜', '乳液', '口红', '面膜',
+                             '牙刷', '牙膏', '纸巾', '湿巾', '洗衣液', '洗洁精',
+                             '油', '盐', '酱', '醋', '酱油', '蚝油'];
+                for (var j = 0; j < nameKws.length; j++) {
+                    if (text.indexOf(nameKws[j]) !== -1) {
+                        result.name = nameKws[j];
+                        break;
+                    }
+                }
+            }
+            
+            // 解析提醒时间 - 倒数第X天
+            var reminderMatch = text.match(/(?:倒数|第|提前)(?:第)?(\d+)天?(?:提醒|通知我)/);
+            if (reminderMatch) {
+                result.reminderDays = parseInt(reminderMatch[1]);
+            } else if (text.indexOf('提醒我') !== -1) {
+                var remindNum = text.match(/提醒[我咱]?(\d+)天/);
+                if (remindNum) {
+                    result.reminderDays = parseInt(remindNum[1]);
+                }
+            }
+            
+            // 解析存放位置
+            var locationPatterns = [
+                /放[在于]?(.+?)(?:，|,|。|$|有效期|保质|提醒|过期|天内)/,
+                /存[放在于]?(.+?)(?:，|,|。|$|有效期|保质|提醒|过期|天内)/
+            ];
+            
+            for (var k = 0; k < locationPatterns.length; k++) {
+                var locMatch = text.match(locationPatterns[k]);
+                if (locMatch && locMatch[1]) {
+                    var loc = locMatch[1].trim();
+                    if (loc.length >= 1 && loc.length <= 10) {
+                        result.location = loc;
+                        break;
+                    }
+                }
+            }
+            
+            // 常见位置识别
+            var commonLocations = ['冰箱', '冷冻', '冷藏', '常温', '厨房', '客厅', '卧室', '卫生间', 
+                                   '浴室', '柜子', '抽屉', '桌面', '阳台', '车里', '办公室'];
+            for (var m = 0; m < commonLocations.length; m++) {
+                if (text.indexOf(commonLocations[m]) !== -1) {
+                    result.location = commonLocations[m];
+                    break;
+                }
+            }
+            
+            // 根据物品名称推断分类
+            var foodKeywords = ['牛奶', '酸奶', '鸡蛋', '面包', '水果', '蔬菜', '肉', '鱼', '虾', '蛋糕', 
+                               '饮料', '水', '茶', '咖啡', '零食', '饼干', '薯片', '油', '盐', '酱', '醋',
+                               '酱油', '蚝油', '米', '面', '饭', '菜', '汤', '果', '食'];
+            for (var n = 0; n < foodKeywords.length; n++) {
+                if (result.name.indexOf(foodKeywords[n]) !== -1) {
+                    result.category = 'food';
+                    break;
+                }
+            }
+            
+            return result;
+        }
+        
+        // 应用解析结果到表单
+        function applyParsedResult(parsed) {
+            if (parsed.name) {
+                document.getElementById('itemName').value = parsed.name;
+            }
+            
+            if (parsed.days > 0) {
+                document.getElementById('validDays').value = parsed.days;
+                autoCalculateExpireDate();
+            }
+            
+            if (parsed.reminderDays > 0) {
+                document.getElementById('reminderDays').value = parsed.reminderDays;
+            }
+            
+            if (parsed.location) {
+                document.getElementById('itemLocation').value = parsed.location;
+            }
+            
+            if (parsed.category) {
+                document.getElementById('itemType').value = parsed.category;
+                onTypeChange();
+                
+                // 尝试匹配具体分类
+                var cats = categories[parsed.category] || [];
+                for (var i = 0; i < cats.length; i++) {
+                    if (parsed.name.indexOf(cats[i]) !== -1) {
+                        document.getElementById('itemCategory').value = cats[i];
+                        onCategoryChange();
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // 检查语音支持并更新UI
+        function checkVoiceSupport() {
+            var btn = document.getElementById('voiceBtn');
+            if (SpeechRecognition || initSpeechRecognition()) {
+                btn.classList.add('supported');
+            } else {
+                btn.style.display = 'none';
+            }
+        }
+        
+        // 安全获取localStorage
+        function safeGetItem(key) {
+            try {
+                return localStorage.getItem(key);
+            } catch (e) {
+                console.log('localStorage not available:', e);
+                return null;
+            }
+        }
+        
+        function safeSetItem(key, value) {
+            try {
+                localStorage.setItem(key, value);
+                return true;
+            } catch (e) {
+                console.log('localStorage write failed:', e);
+                return false;
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('[App] Initializing...');
+            loadItems();
+            setTodayDate();
+            renderItems();
+            checkUrgentItems();
+            // 初始化语音支持检测
+            checkVoiceSupport();
+            console.log('[App] Initialization complete');
+        });
+        
+        function setTodayDate() {
+            var today = new Date();
+            var yyyy = today.getFullYear();
+            var mm = String(today.getMonth() + 1).padStart(2, '0');
+            var dd = String(today.getDate()).padStart(2, '0');
+            document.getElementById('purchaseDate').value = yyyy + '-' + mm + '-' + dd;
+        }
+        
+        function loadItems() {
+            var data = safeGetItem(STORAGE_KEY);
+            if (data) {
+                try {
+                    items = JSON.parse(data);
+                } catch (e) {
+                    items = [];
+                }
+            }
+        }
+        
+        function saveItems() {
+            safeSetItem(STORAGE_KEY, JSON.stringify(items));
+        }
+        
+        function filterByStatus(status) {
+            statusFilter = status;
+            var statItems = document.querySelectorAll('.stat-item');
+            for (var i = 0; i < statItems.length; i++) {
+                statItems[i].classList.remove('active');
+                if (statItems[i].getAttribute('data-filter') === status) {
+                    statItems[i].classList.add('active');
+                }
+            }
+            renderItems();
+        }
+        
+        function filterByType(type) {
+            typeFilter = type;
+            var tabBtns = document.querySelectorAll('.tab-btn');
+            for (var i = 0; i < tabBtns.length; i++) {
+                tabBtns[i].classList.remove('active');
+                if (tabBtns[i].getAttribute('data-type-filter') === type) {
+                    tabBtns[i].classList.add('active');
+                }
+            }
+            renderItems();
+        }
+        
+        function onTypeChange() {
+            var type = document.getElementById('itemType').value;
+            var categorySelect = document.getElementById('itemCategory');
+            categorySelect.innerHTML = '<option value="">请选择</option>';
+            
+            if (type && categories[type]) {
+                for (var i = 0; i < categories[type].length; i++) {
+                    var cat = categories[type][i];
+                    var option = document.createElement('option');
+                    option.value = cat;
+                    option.textContent = cat;
+                    categorySelect.appendChild(option);
+                }
+            }
+            
+            document.getElementById('suggestionTip').style.display = 'none';
+            document.getElementById('reminderDays').value = '7';
+        }
+        
+        function onCategoryChange() {
+            var type = document.getElementById('itemType').value;
+            var category = document.getElementById('itemCategory').value;
+            var suggestionTip = document.getElementById('suggestionTip');
+            var suggestionText = document.getElementById('suggestionText');
+            var reminderDaysInput = document.getElementById('reminderDays');
+            
+            if (type && category && suggestedExpiry[type] && suggestedExpiry[type][category]) {
+                var days = suggestedExpiry[type][category];
+                var isPerishable = type === 'food' && perishableFoods.indexOf(category) !== -1;
+                var reminderDays = (defaultReminderDays[type] && defaultReminderDays[type][category]) ? defaultReminderDays[type][category] : 7;
+                
+                document.getElementById('validDays').value = days;
+                document.getElementById('reminderDays').value = reminderDays;
+                
+                if (isPerishable) {
+                    suggestionTip.className = 'suggestion-tip warning-tip';
+                    suggestionText.innerHTML = '<strong>' + category + '</strong> 是易腐品，建议 <strong>' + days + '</strong> 天内使用！';
+                } else {
+                    suggestionTip.className = 'suggestion-tip';
+                    suggestionText.innerHTML = '<strong>' + category + '</strong> 建议在 <strong>' + days + '</strong> 天内使用';
+                }
+                suggestionTip.style.display = 'flex';
+                
+                autoCalculateExpireDate();
+            } else {
+                suggestionTip.style.display = 'none';
+            }
+        }
+        
+        function autoCalculateExpireDate() {
+            var purchaseDate = document.getElementById('purchaseDate').value;
+            var validDays = parseInt(document.getElementById('validDays').value) || 0;
+            
+            if (purchaseDate && validDays > 0) {
+                var expire = new Date(purchaseDate);
+                expire.setDate(expire.getDate() + validDays);
+                var yyyy = expire.getFullYear();
+                var mm = String(expire.getMonth() + 1).padStart(2, '0');
+                var dd = String(expire.getDate()).padStart(2, '0');
+                document.getElementById('expireDate').value = yyyy + '-' + mm + '-' + dd;
+            }
+        }
+        
+        function onExpireDateChange() {
+            var purchaseDate = document.getElementById('purchaseDate').value;
+            var expireDate = document.getElementById('expireDate').value;
+            
+            if (purchaseDate && expireDate) {
+                var start = new Date(purchaseDate);
+                var end = new Date(expireDate);
+                var days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+                if (days >= 0) {
+                    document.getElementById('validDays').value = days;
+                }
+            }
+        }
+        
+        function getDaysLeft(expireDate) {
+            var today = new Date();
+            today.setHours(0, 0, 0, 0);
+            var expire = new Date(expireDate);
+            expire.setHours(0, 0, 0, 0);
+            return Math.ceil((expire - today) / (1000 * 60 * 60 * 24));
+        }
+        
+        function getItemUrgency(item) {
+            if (!item.pieces || item.pieces.length === 0) {
+                return { level: 'safe', class: 'safe', urgent: false, status: '安全' };
+            }
+            
+            var hasDanger = false;
+            var hasWarning = false;
+            
+            for (var i = 0; i < item.pieces.length; i++) {
+                var piece = item.pieces[i];
+                var daysLeft = getDaysLeft(piece.expireDate);
+                var reminderDays = item.reminderDays || 7;
+                
+                if (daysLeft < 0 || daysLeft <= Math.floor(reminderDays / 2)) {
+                    hasDanger = true;
+                } else if (daysLeft <= reminderDays) {
+                    hasWarning = true;
+                }
+            }
+            
+            if (hasDanger) {
+                return { level: 'danger', class: 'danger-critical', urgent: true, status: '紧急' };
+            } else if (hasWarning) {
+                return { level: 'warning', class: 'warning', urgent: false, status: '注意' };
+            }
+            return { level: 'safe', class: 'safe', urgent: false, status: '安全' };
+        }
+        
+        function getItemSummary(item) {
+            if (!item.pieces || item.pieces.length === 0) return '共0件';
+            
+            var total = item.pieces.length;
+            var reminderDays = item.reminderDays || 7;
+            var urgentCount = 0;
+            
+            for (var i = 0; i < item.pieces.length; i++) {
+                var daysLeft = getDaysLeft(item.pieces[i].expireDate);
+                if (daysLeft < 0 || daysLeft <= Math.floor(reminderDays / 2)) {
+                    urgentCount++;
+                }
+            }
+            
+            if (urgentCount > 0) {
+                return '共' + total + '件，<span class="warn">' + urgentCount + '件需处理</span>';
+            }
+            return '共' + total + '件';
+        }
+        
+        function getPieceStatus(piece, reminderDays) {
+            var daysLeft = getDaysLeft(piece.expireDate);
+            reminderDays = reminderDays || 7;
+            
+            if (daysLeft < 0) {
+                return { class: 'danger', text: '已过期' + Math.abs(daysLeft) + '天' };
+            } else if (daysLeft <= Math.floor(reminderDays / 2)) {
+                return { class: 'danger', text: '剩余' + daysLeft + '天' };
+            } else if (daysLeft <= reminderDays) {
+                return { class: 'warning', text: '剩余' + daysLeft + '天' };
+            }
+            return { class: 'safe', text: '剩余' + daysLeft + '天' };
+        }
+        
+        function renderItems() {
+            var filtered = [];
+            
+            for (var i = 0; i < items.length; i++) {
+                var item = items[i];
+                if (typeFilter !== 'all' && item.type !== typeFilter) continue;
+                if (statusFilter === 'all') {
+                    filtered.push(item);
+                } else {
+                    var urgency = getItemUrgency(item);
+                    if (urgency.level === statusFilter) {
+                        filtered.push(item);
+                    }
+                }
+            }
+            
+            // 排序
+            filtered.sort(function(a, b) {
+                var urgencyA = getItemUrgency(a);
+                var urgencyB = getItemUrgency(b);
+                var priority = { danger: 0, warning: 1, safe: 2 };
+                if (priority[urgencyA.level] !== priority[urgencyB.level]) {
+                    return priority[urgencyA.level] - priority[urgencyB.level];
+                }
+                var minDaysA = Infinity;
+                var minDaysB = Infinity;
+                for (var i = 0; i < a.pieces.length; i++) {
+                    var days = getDaysLeft(a.pieces[i].expireDate);
+                    if (days < minDaysA) minDaysA = days;
+                }
+                for (var j = 0; j < b.pieces.length; j++) {
+                    var days = getDaysLeft(b.pieces[j].expireDate);
+                    if (days < minDaysB) minDaysB = days;
+                }
+                return minDaysA - minDaysB;
+            });
+            
+            updateStats();
+            
+            var listEl = document.getElementById('itemList');
+            
+            if (filtered.length === 0) {
+                listEl.innerHTML = '<div class="empty-state"><div class="icon">📦</div><p>暂无物品</p><p style="font-size:0.85rem;margin-top:6px;color:#9ca3af;">点击上方"添加物品"开始记录</p></div>';
+                return;
+            }
+            
+            var html = '';
+            for (var i = 0; i < filtered.length; i++) {
+                var item = filtered[i];
+                var urgency = getItemUrgency(item);
+                var summary = getItemSummary(item);
+                var typeIcon = item.type === 'food' ? '🍎' : '🧴';
+                
+                var imgHtml = '';
+                if (item.image) {
+                    imgHtml = '<img src="' + item.image + '" class="card-thumb" alt="物品" onclick="showImagePreview(\'' + item.image + '\')">';
+                } else {
+                    imgHtml = '<div class="card-thumb" style="display:flex;align-items:center;justify-content:center;font-size:1.2rem;background:#f5f5f5;">' + typeIcon + '</div>';
+                }
+                
+                var piecesHtml = '';
+                if (item.pieces && item.pieces.length > 0) {
+                    for (var j = 0; j < item.pieces.length; j++) {
+                        var piece = item.pieces[j];
+                        var status = getPieceStatus(piece, item.reminderDays || 7);
+                        piecesHtml += '<div class="piece-item">' +
+                            '<div class="piece-info">' + (piece.purchaseDate ? '购于' + piece.purchaseDate : '') + ' → ' + piece.expireDate + '</div>' +
+                            '<div class="piece-days ' + status.class + '">' + status.text + '</div>' +
+                            '<div class="piece-actions">' +
+                            '<button class="edit-btn" onclick="event.stopPropagation();editPiece(\'' + item.id + '\',' + j + ')">✏️</button>' +
+                            '<button class="delete-btn" onclick="event.stopPropagation();deletePiece(\'' + item.id + '\',' + j + ')">🗑️</button>' +
+                            '</div></div>';
+                    }
+                }
+                
+                html += '<div class="item-card ' + urgency.class + '" onclick="toggleDetail(this)">' +
+                    '<div class="card-main">' +
+                    imgHtml +
+                    '<div class="card-content">' +
+                    '<div class="card-name">' + escapeHtml(item.name) + '</div>' +
+                    '<div class="card-category">' + typeIcon + ' ' + escapeHtml(item.category) + '</div>' +
+                    '<div class="card-summary">' + summary + '</div>' +
+                    '<div class="card-status ' + urgency.level + '">' + urgency.status + '</div>' +
+                    '</div>' +
+                    '<div class="card-actions">' +
+                    '<button class="edit-btn" onclick="event.stopPropagation();editItem(\'' + item.id + '\')">✏️</button>' +
+                    '<button class="delete-btn" onclick="event.stopPropagation();deleteItem(\'' + item.id + '\')">🗑️</button>' +
+                    '</div></div>' +
+                    '<div class="card-detail">' +
+                    piecesHtml +
+                    '<button class="add-piece-btn" onclick="event.stopPropagation();openAddPieceModal(\'' + item.id + '\')">➕ 添加一件</button>' +
+                    '</div></div>';
+            }
+            
+            listEl.innerHTML = html;
+        }
+        
+        function toggleDetail(card) {
+            var detail = card.querySelector('.card-detail');
+            if (detail.classList.contains('show')) {
+                detail.classList.remove('show');
+            } else {
+                detail.classList.add('show');
+            }
+        }
+        
+        function updateStats() {
+            var danger = 0, warning = 0, safe = 0;
+            
+            for (var i = 0; i < items.length; i++) {
+                var urgency = getItemUrgency(items[i]);
+                if (urgency.level === 'danger') danger++;
+                else if (urgency.level === 'warning') warning++;
+                else safe++;
+            }
+            
+            document.getElementById('dangerCount').textContent = danger;
+            document.getElementById('warningCount').textContent = warning;
+            document.getElementById('safeCount').textContent = safe;
+            document.getElementById('allCount').textContent = items.length;
+            document.getElementById('typeAllCount').textContent = items.length;
+            
+            var foodCount = 0, dailyCount = 0;
+            for (var i = 0; i < items.length; i++) {
+                if (items[i].type === 'food') foodCount++;
+                else dailyCount++;
+            }
+            document.getElementById('foodCount').textContent = foodCount;
+            document.getElementById('dailyCount').textContent = dailyCount;
+        }
+        
+        function checkUrgentItems() {
+            var urgentItems = [];
+            for (var i = 0; i < items.length; i++) {
+                if (getItemUrgency(items[i]).urgent) {
+                    urgentItems.push(items[i]);
+                }
+            }
+            
+            if (urgentItems.length > 0) {
+                var item = urgentItems[0];
+                var minDays = Infinity;
+                for (var i = 0; i < item.pieces.length; i++) {
+                    var days = getDaysLeft(item.pieces[i].expireDate);
+                    if (days < minDays) minDays = days;
+                }
+                
+                showAlert('⚠️ 紧急提醒', '<strong>' + item.name + '</strong>（' + item.category + '）<br>最紧急的件剩余 <strong style="color:#ef4444;font-size:1.1em;">' + minDays + '</strong> 天过期！');
+            }
+        }
+        
+        function showAlert(title, message) {
+            document.getElementById('alertTitle').innerHTML = title;
+            document.getElementById('alertMessage').innerHTML = message;
+            document.getElementById('alertModal').classList.add('show');
+        }
+        
+        function closeAlert() {
+            document.getElementById('alertModal').classList.remove('show');
+        }
+        
+        function openModal(id) {
+            editingId = id;
+            
+            // 关闭语音状态
+            document.getElementById('voiceStatus').classList.remove('show');
+            document.getElementById('parseResult').classList.remove('show');
+            
+            if (id) {
+                var item = findItemById(id);
+                if (item) {
+                    document.getElementById('modalTitle').innerHTML = '✏️ 编辑物品';
+                    document.getElementById('itemId').value = item.id;
+                    document.getElementById('itemName').value = item.name;
+                    document.getElementById('itemType').value = item.type;
+                    
+                    var categorySelect = document.getElementById('itemCategory');
+                    categorySelect.innerHTML = '<option value="">请选择</option>';
+                    if (categories[item.type]) {
+                        for (var i = 0; i < categories[item.type].length; i++) {
+                            var cat = categories[item.type][i];
+                            var option = document.createElement('option');
+                            option.value = cat;
+                            option.textContent = cat;
+                            categorySelect.appendChild(option);
+                        }
+                    }
+                    categorySelect.value = item.category;
+                    
+                    document.getElementById('reminderDays').value = item.reminderDays || 7;
+                    document.getElementById('itemLocation').value = item.location || '';
+                    
+                    onCategoryChange();
+                    
+                    if (item.pieces && item.pieces.length > 0) {
+                        var piece = item.pieces[0];
+                        document.getElementById('purchaseDate').value = piece.purchaseDate || '';
+                        document.getElementById('expireDate').value = piece.expireDate;
+                        var validDays = Math.ceil((new Date(piece.expireDate) - new Date(piece.purchaseDate)) / (1000 * 60 * 60 * 24));
+                        document.getElementById('validDays').value = validDays > 0 ? validDays : '';
+                    }
+                    
+                    if (item.image) {
+                        document.getElementById('imagePreview').innerHTML = '<img src="' + item.image + '" alt="预览">';
+                        document.getElementById('uploadText').style.display = 'none';
+                    } else {
+                        document.getElementById('imagePreview').innerHTML = '';
+                        document.getElementById('uploadText').style.display = 'block';
+                    }
+                }
+            } else {
+                document.getElementById('modalTitle').innerHTML = '➕ 添加物品';
+                document.getElementById('itemForm') && (document.getElementById('itemForm').reset());
+                document.getElementById('itemId').value = '';
+                document.getElementById('itemName').value = '';
+                document.getElementById('imagePreview').innerHTML = '';
+                document.getElementById('uploadText').style.display = 'block';
+                document.getElementById('suggestionTip').style.display = 'none';
+                document.getElementById('itemCategory').innerHTML = '<option value="">请先选择大类</option>';
+                document.getElementById('reminderDays').value = '7';
+                document.getElementById('itemLocation').value = '';
+                setTodayDate();
+            }
+            
+            document.getElementById('itemModal').classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function findItemById(id) {
+            for (var i = 0; i < items.length; i++) {
+                if (items[i].id === id) return items[i];
+            }
+            return null;
+        }
+        
+        function closeModal() {
+            // 停止语音识别
+            if (recognition && isRecording) {
+                console.log('[Voice] Stopping recognition on modal close');
+                try {
+                    recognition.stop();
+                } catch (e) {
+                    console.log('[Voice] Error stopping recognition:', e);
+                }
+            }
+            
+            document.getElementById('itemModal').classList.remove('show');
+            document.body.style.overflow = '';
+            editingId = null;
+            pendingItem = null;
+        }
+        
+        function saveItem() {
+            var name = document.getElementById('itemName').value.trim();
+            var type = document.getElementById('itemType').value;
+            var category = document.getElementById('itemCategory').value;
+            var purchaseDate = document.getElementById('purchaseDate').value;
+            var validDays = parseInt(document.getElementById('validDays').value) || 0;
+            var expireDate = document.getElementById('expireDate').value;
+            var reminderDays = parseInt(document.getElementById('reminderDays').value) || 7;
+            var location = document.getElementById('itemLocation').value.trim();
+            
+            var imagePreview = document.getElementById('imagePreview').innerHTML;
+            var imgMatch = imagePreview.match(/src="([^"]+)"/);
+            var image = imgMatch ? imgMatch[1] : null;
+            
+            if (!name || !type || !category || !expireDate) {
+                showToast('请填写必填项');
+                return;
+            }
+            
+            var itemData = {
+                id: editingId || 'item_' + Date.now(),
+                name: name,
+                type: type,
+                category: category,
+                reminderDays: reminderDays,
+                location: location,
+                image: image,
+                updatedAt: new Date().toISOString()
+            };
+            
+            if (editingId) {
+                var existing = findItemById(editingId);
+                if (existing) {
+                    itemData.pieces = existing.pieces;
+                    itemData.createdAt = existing.createdAt;
+                    for (var i = 0; i < items.length; i++) {
+                        if (items[i].id === editingId) {
+                            items[i] = itemData;
+                            break;
+                        }
+                    }
+                }
+                showToast('物品已更新');
+            } else {
+                var piece = {
+                    id: 'piece_' + Date.now(),
+                    purchaseDate: purchaseDate || new Date().toISOString().split('T')[0],
+                    expireDate: expireDate,
+                    validDays: validDays
+                };
+                itemData.pieces = [piece];
+                itemData.createdAt = new Date().toISOString();
+                items.push(itemData);
+                showToast('添加成功');
+            }
+            
+            saveItems();
+            renderItems();
+            closeModal();
+        }
+        
+        function closeDuplicateModal() {
+            document.getElementById('duplicateModal').classList.remove('show');
+            pendingItem = null;
+        }
+        
+        function confirmDuplicate() {
+            if (pendingItem) {
+                items.push(pendingItem);
+                saveItems();
+                renderItems();
+                showToast('添加成功');
+            }
+            closeDuplicateModal();
+            closeModal();
+        }
+        
+        function editItem(id) { openModal(id); }
+        
+        function deleteItem(id) {
+            if (confirm('确定要删除这个物品吗？')) {
+                for (var i = 0; i < items.length; i++) {
+                    if (items[i].id === id) {
+                        items.splice(i, 1);
+                        break;
+                    }
+                }
+                saveItems();
+                renderItems();
+                showToast('已删除');
+            }
+        }
+        
+        function openAddPieceModal(itemId) {
+            var item = findItemById(itemId);
+            if (!item) return;
+            
+            var purchaseDateStr = prompt('购买日期（留空为今天）：', new Date().toISOString().split('T')[0]);
+            if (purchaseDateStr === null) return;
+            
+            if (!purchaseDateStr) {
+                purchaseDateStr = new Date().toISOString().split('T')[0];
+            }
+            
+            var suggestedDays = (suggestedExpiry[item.type] && suggestedExpiry[item.type][item.category]) ? suggestedExpiry[item.type][item.category] : 30;
+            var validDaysStr = prompt('有效期天数：', suggestedDays);
+            if (validDaysStr === null) return;
+            
+            var validDays = parseInt(validDaysStr);
+            if (isNaN(validDays) || validDays <= 0) {
+                showToast('请输入有效的天数');
+                return;
+            }
+            
+            var expireDate = new Date(purchaseDateStr);
+            expireDate.setDate(expireDate.getDate() + validDays);
+            
+            item.pieces.push({
+                id: 'piece_' + Date.now(),
+                purchaseDate: purchaseDateStr,
+                expireDate: expireDate.toISOString().split('T')[0],
+                validDays: validDays
+            });
+            item.updatedAt = new Date().toISOString();
+            
+            saveItems();
+            renderItems();
+            showToast('已添加一件');
+        }
+        
+        function editPiece(itemId, pieceIdx) {
+            var item = findItemById(itemId);
+            if (!item || !item.pieces[pieceIdx]) return;
+            
+            var piece = item.pieces[pieceIdx];
+            var expireDateStr = prompt('过期日期：', piece.expireDate);
+            if (expireDateStr === null) return;
+            
+            var purchaseDateStr = prompt('购买日期：', piece.purchaseDate);
+            if (purchaseDateStr === null) return;
+            
+            var start = new Date(purchaseDateStr);
+            var end = new Date(expireDateStr);
+            var days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+            
+            item.pieces[pieceIdx] = {
+                id: piece.id,
+                purchaseDate: purchaseDateStr,
+                expireDate: expireDateStr,
+                validDays: days > 0 ? days : 0
+            };
+            item.updatedAt = new Date().toISOString();
+            
+            saveItems();
+            renderItems();
+            showToast('已更新');
+        }
+        
+        function deletePiece(itemId, pieceIdx) {
+            var item = findItemById(itemId);
+            if (!item) return;
+            
+            if (item.pieces.length <= 1) {
+                if (confirm('这是最后一件，是否删除整个物品？')) {
+                    deleteItem(itemId);
+                }
+                return;
+            }
+            
+            if (confirm('确定要删除这一件吗？')) {
+                item.pieces.splice(pieceIdx, 1);
+                item.updatedAt = new Date().toISOString();
+                saveItems();
+                renderItems();
+                showToast('已删除');
+            }
+        }
+        
+        function previewImage(input) {
+            if (input.files && input.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('imagePreview').innerHTML = '<img src="' + e.target.result + '" alt="预览">';
+                    document.getElementById('uploadText').style.display = 'none';
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+        
+        function showImagePreview(src) {
+            document.getElementById('previewImage').src = src;
+            document.getElementById('imgPreviewModal').classList.add('show');
+        }
+        
+        function closeImagePreview() {
+            document.getElementById('imgPreviewModal').classList.remove('show');
+        }
+        
+        // 导出Excel
+        function exportToExcel() {
+            if (typeof window.XLSX === 'undefined') {
+                showToast('Excel功能加载中，请稍后重试');
+                return;
+            }
+            
+            if (items.length === 0) {
+                showToast('没有可导出的数据');
+                return;
+            }
+            
+            var data = [];
+            for (var i = 0; i < items.length; i++) {
+                var item = items[i];
+                var urgency = getItemUrgency(item);
+                for (var j = 0; j < item.pieces.length; j++) {
+                    var piece = item.pieces[j];
+                    var daysLeft = getDaysLeft(piece.expireDate);
+                    data.push({
+                        '物品名称': item.name,
+                        '件数序号': j + 1,
+                        '分类': item.type === 'food' ? '食物' : '日用品',
+                        '具体分类': item.category,
+                        '购买日期': piece.purchaseDate,
+                        '过期日期': piece.expireDate,
+                        '剩余天数': daysLeft < 0 ? '已过期' + Math.abs(daysLeft) + '天' : '剩余' + daysLeft + '天',
+                        '状态': urgency.status,
+                        '临期提醒': item.reminderDays || 7,
+                        '存放位置': item.location || ''
+                    });
+                }
+            }
+            
+            var ws = window.XLSX.utils.json_to_sheet(data);
+            var wb = window.XLSX.utils.book_new();
+            window.XLSX.utils.book_append_sheet(wb, ws, '物品清单');
+            
+            var date = new Date().toISOString().slice(0, 10);
+            window.XLSX.writeFile(wb, '过期了么_' + date + '.xlsx');
+            showToast('已导出Excel');
+        }
+        
+        // 导入Excel
+        function importFromExcel(input) {
+            if (typeof window.XLSX === 'undefined') {
+                showToast('Excel功能加载中，请稍后重试');
+                return;
+            }
+            
+            if (!input.files || !input.files[0]) return;
+            
+            var file = input.files[0];
+            var reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    var data = new Uint8Array(e.target.result);
+                    var workbook = window.XLSX.read(data, { type: 'array' });
+                    var sheetName = workbook.SheetNames[0];
+                    var sheet = workbook.Sheets[sheetName];
+                    var jsonData = window.XLSX.utils.sheet_to_json(sheet);
+                    
+                    if (jsonData.length === 0) {
+                        showToast('文件中没有数据');
+                        return;
+                    }
+                    
+                    var importedCount = 0;
+                    var itemMap = {};
+                    
+                    for (var i = 0; i < jsonData.length; i++) {
+                        var row = jsonData[i];
+                        var name = row['物品名称'] || row['name'] || '';
+                        var categoryName = row['具体分类'] || row['category'] || '';
+                        var type = categoryTypeMap[categoryName] || 
+                                  (row['分类'] === '食物' ? 'food' : row['分类'] === '日用品' ? 'daily' : null);
+                        
+                        if (name && type && categoryName) {
+                            var expireDate = row['过期日期'] || '';
+                            var purchaseDate = row['购买日期'] || '';
+                            
+                            if (!itemMap[name]) {
+                                itemMap[name] = {
+                                    id: 'item_' + Date.now() + Math.random().toString(36).substr(2, 9),
+                                    name: name,
+                                    type: type,
+                                    category: categoryName,
+                                    pieces: [],
+                                    reminderDays: row['临期提醒'] || 7,
+                                    location: row['存放位置'] || '',
+                                    createdAt: new Date().toISOString(),
+                                    updatedAt: new Date().toISOString()
+                                };
+                            }
+                            
+                            itemMap[name].pieces.push({
+                                id: 'piece_' + Date.now() + Math.random().toString(36).substr(2, 9),
+                                purchaseDate: purchaseDate,
+                                expireDate: expireDate,
+                                validDays: 0
+                            });
+                            importedCount++;
+                        }
+                    }
+                    
+                    for (var key in itemMap) {
+                        items.push(itemMap[key]);
+                    }
+                    saveItems();
+                    renderItems();
+                    showToast('成功导入 ' + importedCount + ' 件');
+                } catch (err) {
+                    console.error(err);
+                    showToast('导入失败，请检查文件格式');
+                }
+            };
+            
+            reader.readAsArrayBuffer(file);
+            input.value = '';
+        }
+        
+        function escapeHtml(text) {
+            if (!text) return '';
+            var div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function showToast(message) {
+            var toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(function() {
+                toast.classList.remove('show');
+            }, 2500);
+        }
+        
+        document.getElementById('itemModal').addEventListener('click', function(e) {
+            if (e.target === this) closeModal();
+        });
+        
+        document.getElementById('alertModal').addEventListener('click', function(e) {
+            if (e.target === this) closeAlert();
+        });
+        
+        document.getElementById('duplicateModal').addEventListener('click', function(e) {
+            if (e.target === this) closeDuplicateModal();
+        });
+        
+        document.getElementById('imgPreviewModal').addEventListener('click', function(e) {
+            if (e.target === this) closeImagePreview();
+        });
+    </script>
+</body>
+</html>
