@@ -8,7 +8,7 @@
     <meta name="format-detection" content="telephone=no">
     <title>过期了么 - 物品有效期管理</title>
     
-    <!-- 版本: 2026-04-13-v3 -->
+    <!-- 版本: 2026-04-13-v4 -->
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
@@ -151,6 +151,29 @@
             display: flex;
             align-items: center;
             justify-content: center;
+        }
+        
+        .settings-btn {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        
+        .settings-btn:hover {
+            background: rgba(255,255,255,0.3);
         }
         
         /* 登录区域 */
@@ -1373,6 +1396,313 @@
             .card-thumb { width: 42px; height: 42px; }
             .card-name { font-size: 1rem; }
         }
+        
+        /* ========== 设置面板样式 ========== */
+        .settings-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 3000;
+            justify-content: center;
+            align-items: flex-end;
+        }
+        
+        .settings-modal.show { display: flex; }
+        
+        .settings-content {
+            background: var(--card-bg);
+            border-radius: 20px 20px 0 0;
+            width: 100%;
+            max-width: 520px;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: slideUp 0.35s ease;
+        }
+        
+        .settings-header {
+            padding: 16px 20px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .settings-header h2 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin: 0;
+        }
+        
+        .settings-body {
+            padding: 16px 20px;
+            padding-bottom: max(16px, env(safe-area-inset-bottom));
+        }
+        
+        .settings-section {
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .settings-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+        
+        .settings-section-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 12px;
+        }
+        
+        .house-info {
+            background: var(--bg);
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+        
+        .house-role {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            margin-bottom: 10px;
+        }
+        
+        .settings-btn-primary {
+            width: 100%;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        
+        .settings-btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .settings-btn-secondary {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg);
+            color: var(--text);
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        
+        .invite-code-display {
+            margin-top: 12px;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--safe-bg), #d1fae5);
+            border-radius: 12px;
+            border: 2px solid var(--primary);
+        }
+        
+        .invite-code-label {
+            font-size: 0.85rem;
+            color: var(--primary-dark);
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        
+        .invite-code-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .invite-code-input {
+            flex: 1;
+            padding: 14px;
+            border: 2px solid var(--primary);
+            border-radius: 10px;
+            font-size: 1.4rem;
+            font-weight: 700;
+            text-align: center;
+            letter-spacing: 4px;
+            background: white;
+            color: var(--primary-dark);
+        }
+        
+        .invite-code-input:focus {
+            outline: none;
+        }
+        
+        .copy-btn {
+            width: 44px;
+            height: 44px;
+            border: none;
+            border-radius: 10px;
+            background: var(--primary);
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .copy-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .invite-code-hint {
+            font-size: 0.75rem;
+            color: var(--text-light);
+            margin-top: 8px;
+            text-align: center;
+        }
+        
+        .join-house-form {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .join-code-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .join-code-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        .join-result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            display: none;
+        }
+        
+        .join-result.show { display: block; }
+        .join-result.success { background: var(--safe-bg); color: var(--primary-dark); border-left: 4px solid var(--primary); }
+        .join-result.error { background: var(--danger-bg); color: var(--danger-dark); border-left: 4px solid var(--danger); }
+        
+        .member-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .member-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: var(--bg);
+            border-radius: 10px;
+            margin-bottom: 8px;
+        }
+        
+        .member-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .member-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        
+        .member-info {
+            flex: 1;
+        }
+        
+        .member-name {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+        
+        .member-email {
+            font-size: 0.75rem;
+            color: var(--text-light);
+        }
+        
+        .member-role {
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+        
+        .member-role.owner {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+        }
+        
+        .member-role.member {
+            background: var(--bg);
+            color: var(--text-light);
+        }
+        
+        .member-loading {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+        
+        .create-house-form {
+            margin-top: 12px;
+            display: flex;
+            gap: 8px;
+        }
+        
+        .house-name-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 0.9rem;
+        }
+        
+        .house-name-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        /* 隐藏未登录时的邀请/加入区块 */
+        .settings-section.hidden { display: none; }
     </style>
 </head>
 <body>
@@ -1389,6 +1719,9 @@
         <div class="auth-area" id="authArea">
             <!-- 动态渲染 -->
         </div>
+        <button class="settings-btn" id="settingsBtn" onclick="openSettingsModal()" title="设置" style="display:none;">
+            <span>⚙️</span>
+        </button>
         <button class="font-size-btn" id="fontSizeBtn" onclick="toggleFontSizeMenu()" title="字体大小">🔤</button>
         <div class="font-size-menu" id="fontSizeMenu">
             <div class="font-size-option" onclick="setFontSizeOption('small')">小字</div>
@@ -1662,6 +1995,87 @@
         <img id="previewImage" src="" alt="预览">
     </div>
     
+    <!-- 设置面板模态框 -->
+    <div class="settings-modal" id="settingsModal">
+        <div class="settings-content">
+            <div class="settings-header">
+                <h2>⚙️ 设置</h2>
+                <button class="close-btn" onclick="closeSettingsModal()">✕</button>
+            </div>
+            <div class="settings-body">
+                <!-- 当前房子信息 -->
+                <div class="settings-section" id="currentHouseSection">
+                    <div class="settings-section-title">🏠 当前房子</div>
+                    <div class="house-info" id="currentHouseInfo">
+                        <span id="currentHouseName">加载中...</span>
+                    </div>
+                    <div class="house-role" id="currentHouseRole"></div>
+                </div>
+                
+                <!-- 邀请家人 -->
+                <div class="settings-section" id="inviteSection">
+                    <div class="settings-section-title">👥 邀请家人</div>
+                    <button class="settings-btn-primary" id="generateInviteBtn" onclick="generateInviteCode()">
+                        <span>🎫</span><span>生成邀请码</span>
+                    </button>
+                    <div class="invite-code-display" id="inviteCodeDisplay" style="display:none;">
+                        <div class="invite-code-label">分享此邀请码给家人：</div>
+                        <div class="invite-code-row">
+                            <input type="text" id="inviteCodeInput" readonly class="invite-code-input">
+                            <button class="copy-btn" onclick="copyInviteCode()">📋</button>
+                        </div>
+                        <div class="invite-code-hint">邀请码有效期24小时</div>
+                    </div>
+                </div>
+                
+                <!-- 加入房子 -->
+                <div class="settings-section" id="joinSection">
+                    <div class="settings-section-title">🚪 加入房子</div>
+                    <div class="join-house-form">
+                        <input type="text" id="joinHouseCode" placeholder="输入6位邀请码" maxlength="6" class="join-code-input">
+                        <button class="settings-btn-primary" onclick="joinHouseByCode()">
+                            <span>➕</span><span>加入</span>
+                        </button>
+                    </div>
+                    <div class="join-result" id="joinResult"></div>
+                </div>
+                
+                <!-- 成员列表 -->
+                <div class="settings-section" id="membersSection">
+                    <div class="settings-section-title">👨‍👩‍👧‍👦 家庭成员</div>
+                    <div class="member-list" id="memberList">
+                        <div class="member-loading">加载中...</div>
+                    </div>
+                </div>
+                
+                <!-- 创建新房 -->
+                <div class="settings-section">
+                    <div class="settings-section-title">🏗️ 房子管理</div>
+                    <button class="settings-btn-secondary" onclick="showCreateHouseForm()">
+                        <span>➕</span><span>创建新房子</span>
+                    </button>
+                    <div class="create-house-form" id="createHouseForm" style="display:none;">
+                        <input type="text" id="newHouseName" placeholder="输入房子名称" class="house-name-input">
+                        <button class="settings-btn-primary" onclick="createNewHouse()">创建</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 创建新房确认模态框 -->
+    <div class="alert-modal" id="createHouseModal">
+        <div class="alert-content">
+            <div class="alert-icon">🏠</div>
+            <div class="alert-title">创建新房子</div>
+            <div class="alert-message" id="createHouseMessage">确定要创建一个新房子吗？</div>
+            <div class="alert-buttons">
+                <button class="alert-btn-cancel" onclick="closeCreateHouseModal()">取消</button>
+                <button class="alert-btn-confirm" onclick="confirmCreateHouse()">确定</button>
+            </div>
+        </div>
+    </div>
+    
     <div class="toast" id="toast"></div>
 
     <script>
@@ -1735,6 +2149,7 @@
         // 更新认证 UI
         function updateAuthUI() {
             var authArea = document.getElementById('authArea');
+            var settingsBtn = document.getElementById('settingsBtn');
             if (!authArea) return;
             
             if (currentUser) {
@@ -1743,9 +2158,455 @@
                     '<span class="email" title="' + escapeHtml(currentUser.email) + '">' + escapeHtml(currentUser.email) + '</span>' +
                     '<button class="logout-btn" onclick="handleLogout()">退出</button>' +
                     '</div>';
+                settingsBtn.style.display = 'flex';
             } else {
                 authArea.innerHTML = '<button class="auth-btn" onclick="openAuthModal()">' +
                     '<span>🔑</span><span>登录</span></button>';
+                settingsBtn.style.display = 'none';
+            }
+        }
+        
+        // ========== 设置面板相关 ==========
+        
+        // 打开设置面板
+        function openSettingsModal() {
+            if (!currentUser) {
+                showToast('请先登录');
+                openAuthModal();
+                return;
+            }
+            
+            document.getElementById('settingsModal').classList.add('show');
+            document.body.style.overflow = 'hidden';
+            
+            // 加载当前房子信息
+            loadCurrentHouseInfo();
+            
+            // 加载成员列表
+            loadHouseMembers();
+            
+            // 清空之前的邀请码显示
+            document.getElementById('inviteCodeDisplay').style.display = 'none';
+            document.getElementById('joinResult').classList.remove('show');
+            document.getElementById('joinHouseCode').value = '';
+        }
+        
+        // 关闭设置面板
+        function closeSettingsModal() {
+            document.getElementById('settingsModal').classList.remove('show');
+            document.body.style.overflow = '';
+        }
+        
+        // 加载当前房子信息
+        async function loadCurrentHouseInfo() {
+            var currentHouse = houses.find(function(h) { return h.id === currentHouseId; });
+            if (currentHouse) {
+                document.getElementById('currentHouseName').textContent = currentHouse.name;
+                
+                // 检查用户角色
+                var isOwner = currentHouse.user_id === currentUser.id;
+                var roleText = isOwner ? '👑 房主' : '👤 成员';
+                document.getElementById('currentHouseRole').textContent = roleText;
+                
+                // 根据角色显示/隐藏邀请区块
+                var inviteSection = document.getElementById('inviteSection');
+                if (isOwner) {
+                    inviteSection.classList.remove('hidden');
+                } else {
+                    inviteSection.classList.add('hidden');
+                }
+            } else {
+                document.getElementById('currentHouseName').textContent = '未选择房子';
+                document.getElementById('currentHouseRole').textContent = '';
+            }
+        }
+        
+        // 加载房子成员
+        async function loadHouseMembers() {
+            if (!currentHouseId) {
+                document.getElementById('memberList').innerHTML = '<div class="member-loading">请先选择一个房子</div>';
+                return;
+            }
+            
+            try {
+                // 获取房子信息
+                var houseResult = await supabase
+                    .from('houses')
+                    .select('*')
+                    .eq('id', currentHouseId)
+                    .single();
+                
+                if (houseResult.error) throw houseResult.error;
+                
+                var house = houseResult.data;
+                var members = [];
+                
+                // 获取房主信息
+                if (house.user_id) {
+                    var ownerProfile = await getUserProfile(house.user_id);
+                    members.push({
+                        userId: house.user_id,
+                        email: ownerProfile?.email || '房主',
+                        role: 'owner'
+                    });
+                }
+                
+                // 获取成员信息
+                var membersResult = await supabase
+                    .from('house_members')
+                    .select('*')
+                    .eq('house_id', currentHouseId);
+                
+                if (!membersResult.error && membersResult.data) {
+                    for (var i = 0; i < membersResult.data.length; i++) {
+                        var member = membersResult.data[i];
+                        if (member.user_id !== house.user_id) {
+                            var profile = await getUserProfile(member.user_id);
+                            members.push({
+                                userId: member.user_id,
+                                email: profile?.email || '成员',
+                                role: 'member'
+                            });
+                        }
+                    }
+                }
+                
+                renderMemberList(members);
+            } catch (err) {
+                console.error('[Members] Load error:', err);
+                document.getElementById('memberList').innerHTML = '<div class="member-loading">加载失败</div>';
+            }
+        }
+        
+        // 获取用户信息
+        async function getUserProfile(userId) {
+            try {
+                var result = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', userId)
+                    .single();
+                
+                if (!result.error && result.data) {
+                    return result.data;
+                }
+            } catch (e) {
+                console.log('[Profile] Error:', e);
+            }
+            return null;
+        }
+        
+        // 渲染成员列表
+        function renderMemberList(members) {
+            var listEl = document.getElementById('memberList');
+            
+            if (!members || members.length === 0) {
+                listEl.innerHTML = '<div class="member-loading">暂无成员</div>';
+                return;
+            }
+            
+            var html = '';
+            for (var i = 0; i < members.length; i++) {
+                var member = members[i];
+                var initial = member.email ? member.email.charAt(0).toUpperCase() : '?';
+                var roleLabel = member.role === 'owner' ? '房主' : '成员';
+                var roleClass = member.role === 'owner' ? 'owner' : 'member';
+                
+                html += '<div class="member-item">' +
+                    '<div class="member-avatar">' + initial + '</div>' +
+                    '<div class="member-info">' +
+                    '<div class="member-name">' + escapeHtml(member.email) + '</div>' +
+                    '</div>' +
+                    '<span class="member-role ' + roleClass + '">' + roleLabel + '</span>' +
+                    '</div>';
+            }
+            
+            listEl.innerHTML = html;
+        }
+        
+        // 生成邀请码
+        async function generateInviteCode() {
+            if (!currentUser || !currentHouseId) {
+                showToast('请先登录并选择房子');
+                return;
+            }
+            
+            var btn = document.getElementById('generateInviteBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span>⏳</span><span>生成中...</span>';
+            
+            try {
+                // 生成6位邀请码
+                var code = generateRandomCode(6);
+                
+                // 计算过期时间（24小时后）
+                var expiresAt = new Date();
+                expiresAt.setHours(expiresAt.getHours() + 24);
+                
+                // 尝试插入到 invite_codes 表
+                var result = await supabase
+                    .from('invite_codes')
+                    .insert({
+                        code: code,
+                        house_id: currentHouseId,
+                        created_by: currentUser.id,
+                        expires_at: expiresAt.toISOString()
+                    })
+                    .select()
+                    .single();
+                
+                if (result.error) {
+                    // 如果表不存在，尝试使用 localStorage 方案
+                    console.log('[Invite] Table may not exist, using localStorage');
+                    saveInviteCodeToLocal(code, currentHouseId);
+                }
+                
+                // 显示邀请码
+                document.getElementById('inviteCodeInput').value = code;
+                document.getElementById('inviteCodeDisplay').style.display = 'block';
+                
+                showToast('邀请码已生成');
+                
+                // 3秒后恢复按钮
+                setTimeout(function() {
+                    btn.disabled = false;
+                    btn.innerHTML = '<span>🎫</span><span>重新生成</span>';
+                }, 3000);
+                
+            } catch (err) {
+                console.error('[Invite] Generate error:', err);
+                showToast('生成邀请码失败');
+                btn.disabled = false;
+                btn.innerHTML = '<span>🎫</span><span>生成邀请码</span>';
+            }
+        }
+        
+        // 生成随机邀请码
+        function generateRandomCode(length) {
+            var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            var code = '';
+            for (var i = 0; i < length; i++) {
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return code;
+        }
+        
+        // 保存邀请码到 localStorage（兼容方案）
+        function saveInviteCodeToLocal(code, houseId) {
+            var codes = JSON.parse(localStorage.getItem('guoqiLeMe_inviteCodes') || '{}');
+            codes[code] = {
+                houseId: houseId,
+                createdBy: currentUser.id,
+                expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+            };
+            localStorage.setItem('guoqiLeMe_inviteCodes', JSON.stringify(codes));
+        }
+        
+        // 复制邀请码
+        function copyInviteCode() {
+            var code = document.getElementById('inviteCodeInput').value;
+            if (!code) return;
+            
+            try {
+                navigator.clipboard.writeText(code).then(function() {
+                    showToast('邀请码已复制');
+                }).catch(function() {
+                    // fallback
+                    var textarea = document.createElement('textarea');
+                    textarea.value = code;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    showToast('邀请码已复制');
+                });
+            } catch (e) {
+                showToast('复制失败');
+            }
+        }
+        
+        // 加入房子
+        async function joinHouseByCode() {
+            var code = document.getElementById('joinHouseCode').value.trim().toUpperCase();
+            var resultEl = document.getElementById('joinResult');
+            
+            if (!code || code.length !== 6) {
+                resultEl.className = 'join-result error show';
+                resultEl.textContent = '请输入有效的6位邀请码';
+                return;
+            }
+            
+            if (!currentUser) {
+                resultEl.className = 'join-result error show';
+                resultEl.textContent = '请先登录';
+                return;
+            }
+            
+            resultEl.className = 'join-result show';
+            resultEl.textContent = '正在验证邀请码...';
+            
+            try {
+                // 先尝试从数据库查询
+                var inviteResult = await supabase
+                    .from('invite_codes')
+                    .select('*')
+                    .eq('code', code)
+                    .gt('expires_at', new Date().toISOString())
+                    .single();
+                
+                var houseId = null;
+                
+                if (inviteResult.data) {
+                    houseId = inviteResult.data.house_id;
+                } else {
+                    // 尝试从 localStorage 获取
+                    var codes = JSON.parse(localStorage.getItem('guoqiLeMe_inviteCodes') || '{}');
+                    if (codes[code]) {
+                        var codeInfo = codes[code];
+                        if (new Date(codeInfo.expiresAt) > new Date()) {
+                            houseId = codeInfo.houseId;
+                        } else {
+                            delete codes[code];
+                            localStorage.setItem('guoqiLeMe_inviteCodes', JSON.stringify(codes));
+                        }
+                    }
+                }
+                
+                if (!houseId) {
+                    resultEl.className = 'join-result error show';
+                    resultEl.textContent = '邀请码无效或已过期';
+                    return;
+                }
+                
+                // 检查是否已经是成员
+                var memberCheck = await supabase
+                    .from('house_members')
+                    .select('*')
+                    .eq('house_id', houseId)
+                    .eq('user_id', currentUser.id)
+                    .single();
+                
+                if (!memberCheck.error && memberCheck.data) {
+                    resultEl.className = 'join-result error show';
+                    resultEl.textContent = '您已经是这个房子的成员';
+                    return;
+                }
+                
+                // 获取房子信息
+                var houseResult = await supabase
+                    .from('houses')
+                    .select('*')
+                    .eq('id', houseId)
+                    .single();
+                
+                if (houseResult.error || !houseResult.data) {
+                    resultEl.className = 'join-result error show';
+                    resultEl.textContent = '房子不存在';
+                    return;
+                }
+                
+                // 加入 house_members 表
+                var joinResult = await supabase
+                    .from('house_members')
+                    .insert({
+                        house_id: houseId,
+                        user_id: currentUser.id,
+                        role: 'member'
+                    });
+                
+                if (joinResult.error) {
+                    throw joinResult.error;
+                }
+                
+                // 将房子添加到本地列表
+                houses.push(houseResult.data);
+                currentHouseId = houseId;
+                
+                // 保存到本地
+                localStorage.setItem('guoqiLeMe_houses', JSON.stringify(houses));
+                localStorage.setItem('guoqiLeMe_currentHouseId', houseId);
+                
+                // 更新UI
+                renderHouseSelector();
+                
+                // 刷新设置面板
+                loadCurrentHouseInfo();
+                loadHouseMembers();
+                
+                // 同步数据
+                await syncFromCloud();
+                
+                resultEl.className = 'join-result success show';
+                resultEl.textContent = '成功加入「' + houseResult.data.name + '」！';
+                document.getElementById('joinHouseCode').value = '';
+                
+                showToast('已成功加入房子');
+                
+            } catch (err) {
+                console.error('[Join] Error:', err);
+                resultEl.className = 'join-result error show';
+                resultEl.textContent = '加入失败，请重试';
+            }
+        }
+        
+        // 显示创建房子表单
+        function showCreateHouseForm() {
+            var form = document.getElementById('createHouseForm');
+            form.style.display = form.style.display === 'none' ? 'flex' : 'none';
+            if (form.style.display === 'flex') {
+                document.getElementById('newHouseName').focus();
+            }
+        }
+        
+        // 创建新房子
+        async function createNewHouse() {
+            var name = document.getElementById('newHouseName').value.trim();
+            
+            if (!name) {
+                showToast('请输入房子名称');
+                return;
+            }
+            
+            if (!currentUser) {
+                showToast('请先登录');
+                return;
+            }
+            
+            try {
+                var result = await supabase
+                    .from('houses')
+                    .insert({
+                        user_id: currentUser.id,
+                        name: name
+                    })
+                    .select()
+                    .single();
+                
+                if (result.error) throw result.error;
+                
+                // 添加到本地列表
+                houses.push(result.data);
+                currentHouseId = result.data.id;
+                
+                // 保存到本地
+                localStorage.setItem('guoqiLeMe_houses', JSON.stringify(houses));
+                localStorage.setItem('guoqiLeMe_currentHouseId', currentHouseId);
+                
+                // 隐藏表单
+                document.getElementById('createHouseForm').style.display = 'none';
+                document.getElementById('newHouseName').value = '';
+                
+                // 更新UI
+                renderHouseSelector();
+                loadCurrentHouseInfo();
+                loadHouseMembers();
+                renderItems();
+                
+                showToast('新房子「' + name + '」已创建');
+                
+            } catch (err) {
+                console.error('[House] Create error:', err);
+                showToast('创建房子失败');
             }
         }
         
@@ -1861,6 +2722,8 @@
             if (!currentUser) return;
             
             try {
+                // 获取用户创建的房子的 ID 列表
+                var ownedHouses = [];
                 var result = await supabase
                     .from('houses')
                     .select('*')
@@ -1868,16 +2731,56 @@
                     .order('created_at', { ascending: true });
                 
                 if (result.error) throw result.error;
+                ownedHouses = result.data || [];
+                console.log('[House] Owned houses:', ownedHouses.length);
                 
-                houses = result.data || [];
-                console.log('[House] Loaded:', houses.length);
+                // 获取用户作为成员的房子
+                var memberHouses = [];
+                var memberResult = await supabase
+                    .from('house_members')
+                    .select('house_id')
+                    .eq('user_id', currentUser.id);
+                
+                if (!memberResult.error && memberResult.data && memberResult.data.length > 0) {
+                    var memberHouseIds = memberResult.data.map(function(m) { return m.house_id; });
+                    
+                    // 查询这些房子的详情
+                    var memberHouseResult = await supabase
+                        .from('houses')
+                        .select('*')
+                        .in('id', memberHouseIds);
+                    
+                    if (!memberHouseResult.error && memberHouseResult.data) {
+                        memberHouses = memberHouseResult.data;
+                    }
+                }
+                console.log('[House] Member houses:', memberHouses.length);
+                
+                // 合并房子列表（去重）
+                var allHousesMap = {};
+                for (var i = 0; i < ownedHouses.length; i++) {
+                    allHousesMap[ownedHouses[i].id] = ownedHouses[i];
+                }
+                for (var j = 0; j < memberHouses.length; j++) {
+                    if (!allHousesMap[memberHouses[j].id]) {
+                        allHousesMap[memberHouses[j].id] = memberHouses[j];
+                    }
+                }
+                
+                houses = Object.values(allHousesMap);
+                console.log('[House] Total houses:', houses.length);
                 
                 // 如果没有房子，创建默认房子
                 if (houses.length === 0) {
                     await createDefaultHouse();
                 } else {
-                    // 使用第一个房子
-                    currentHouseId = houses[0].id;
+                    // 使用上次选中的房子或第一个
+                    var savedHouseId = localStorage.getItem('guoqiLeMe_currentHouseId');
+                    if (savedHouseId && houses.some(function(h) { return h.id === savedHouseId; })) {
+                        currentHouseId = savedHouseId;
+                    } else {
+                        currentHouseId = houses[0].id;
+                    }
                 }
             } catch (err) {
                 console.error('[House] Load error:', err);
@@ -1911,17 +2814,17 @@
             var selector = document.getElementById('houseSelector');
             var select = document.getElementById('houseSelect');
             
-            if (!currentUser || houses.length <= 1) {
+            // 如果用户有多个房子，显示选择器
+            if (currentUser && houses.length > 1) {
+                selector.classList.add('show');
+                select.innerHTML = houses.map(function(house) {
+                    return '<option value="' + house.id + '"' + 
+                           (house.id === currentHouseId ? ' selected' : '') + '>' + 
+                           escapeHtml(house.name) + '</option>';
+                }).join('');
+            } else {
                 selector.classList.remove('show');
-                return;
             }
-            
-            selector.classList.add('show');
-            select.innerHTML = houses.map(function(house) {
-                return '<option value="' + house.id + '"' + 
-                       (house.id === currentHouseId ? ' selected' : '') + '>' + 
-                       escapeHtml(house.name) + '</option>';
-            }).join('');
         }
         
         async function onHouseChange() {
@@ -4058,6 +4961,15 @@
             var menu = document.getElementById('contextMenu');
             if (menu && !menu.contains(e.target) && !e.target.closest('.item-card')) {
                 hideContextMenu();
+            }
+            
+            // 关闭设置面板
+            var settingsModal = document.getElementById('settingsModal');
+            var settingsContent = settingsModal ? settingsModal.querySelector('.settings-content') : null;
+            if (settingsModal && settingsModal.classList.contains('show') && 
+                settingsContent && !settingsContent.contains(e.target) && 
+                !e.target.closest('.settings-btn')) {
+                closeSettingsModal();
             }
         });
         
