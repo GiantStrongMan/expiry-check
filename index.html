@@ -814,6 +814,120 @@
             color: #92400e;
         }
         
+        /* 条码扫描区域 */
+        .barcode-section {
+            background: linear-gradient(135deg, var(--bg), #e8f5ec);
+            border: 2px solid var(--primary);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 14px;
+        }
+        
+        .barcode-section .barcode-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--primary-dark);
+            margin-bottom: 8px;
+        }
+        
+        .barcode-input-row {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .barcode-input-row input {
+            flex: 1;
+            padding: 10px 12px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 0.9rem;
+            background: var(--card-bg);
+        }
+        
+        .barcode-input-row input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        .barcode-query-btn {
+            padding: 10px 16px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        
+        .barcode-query-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .barcode-result {
+            display: none;
+            margin-top: 10px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+        }
+        
+        .barcode-result.show { display: block; }
+        
+        .barcode-result.success {
+            background: var(--safe-bg);
+            color: var(--primary-dark);
+            border-left: 4px solid var(--primary);
+        }
+        
+        .barcode-result.error {
+            background: var(--danger-bg);
+            color: var(--danger-dark);
+            border-left: 4px solid var(--danger);
+        }
+        
+        .barcode-result.loading {
+            background: var(--warning-bg);
+            color: #92400e;
+            border-left: 4px solid var(--warning);
+        }
+        
+        .barcode-product-preview {
+            display: flex;
+            gap: 10px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed var(--primary);
+        }
+        
+        .barcode-product-preview img {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        
+        .barcode-product-info {
+            flex: 1;
+            font-size: 0.8rem;
+        }
+        
+        .barcode-product-info .product-name {
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 2px;
+        }
+        
+        .barcode-product-info .product-brand {
+            color: var(--text-light);
+        }
+        
         .image-upload {
             border: 2px dashed var(--border);
             border-radius: 10px;
@@ -1142,6 +1256,22 @@
                     <span>🎤</span>
                     <span id="parseResultText">已识别完成</span>
                     <div class="parsed-info" id="parsedInfo"></div>
+                </div>
+                
+                <!-- 条码扫描区域 -->
+                <div class="barcode-section">
+                    <div class="barcode-label">
+                        <span>📊</span>
+                        <span>条码扫描（可选）</span>
+                    </div>
+                    <div class="barcode-input-row">
+                        <input type="text" id="barcodeInput" placeholder="输入条码（如：3017620422003）" maxlength="14">
+                        <button type="button" class="barcode-query-btn" id="barcodeQueryBtn" onclick="queryBarcode()">查询</button>
+                    </div>
+                    <div class="barcode-result" id="barcodeResult">
+                        <span id="barcodeResultText"></span>
+                        <div class="barcode-product-preview" id="barcodeProductPreview"></div>
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -2442,6 +2572,242 @@
             return null;
         }
         
+        // ==================== 条码扫描功能 ====================
+        
+        // 防抖定时器
+        var barcodeDebounceTimer = null;
+        
+        // 验证条码格式（8-14位数字）
+        function validateBarcode(barcode) {
+            return /^\d{8,14}$/.test(barcode);
+        }
+        
+        // 根据分类标签智能判断分类
+        function guessCategoryFromTags(categoriesTags) {
+            if (!categoriesTags || !categoriesTags.length) return 'daily';
+            
+            var tagsStr = categoriesTags.join(' ').toLowerCase();
+            
+            // 护肤品/化妆品
+            if (tagsStr.includes('cosmetics') || 
+                tagsStr.includes('skin-care') || 
+                tagsStr.includes('beauty') ||
+                tagsStr.includes('make-up') ||
+                tagsStr.includes('fragrance') ||
+                tagsStr.includes('shampoo') ||
+                tagsStr.includes('soap') ||
+                tagsStr.includes('lotion')) {
+                return 'skincare';
+            }
+            
+            // 食品/饮料
+            if (tagsStr.includes('beverages') || 
+                tagsStr.includes('food') || 
+                tagsStr.includes('dairy') ||
+                tagsStr.includes('snack') ||
+                tagsStr.includes('confectionery') ||
+                tagsStr.includes('chocolate') ||
+                tagsStr.includes('drink') ||
+                tagsStr.includes('coffee') ||
+                tagsStr.includes('tea') ||
+                tagsStr.includes('sauce') ||
+                tagsStr.includes('spreads') ||
+                tagsStr.includes('cereal')) {
+                return 'food';
+            }
+            
+            // 默认日用品
+            return 'daily';
+        }
+        
+        // 获取具体分类列表
+        function getSpecificCategories(mainType) {
+            var categories = {
+                food: [
+                    { value: 'fruits', label: '🍎 水果' },
+                    { value: 'vegetables', label: '🥬 蔬菜' },
+                    { value: 'meat', label: '🥩 肉类' },
+                    { value: 'seafood', label: '🐟 海鲜' },
+                    { value: 'dairy', label: '🥛 奶制品' },
+                    { value: 'bread', label: '🍞 面包' },
+                    { value: 'snacks', label: '🍿 零食' },
+                    { value: 'drinks', label: '🥤 饮料' },
+                    { value: 'condiments', label: '🧂 调味品' },
+                    { value: 'instant', label: '🍜 速冻/方便食品' },
+                    { value: 'other', label: '🍽️ 其他食物' }
+                ],
+                daily: [
+                    { value: 'cleaning', label: '🧹 清洁用品' },
+                    { value: 'laundry', label: '👕 洗衣用品' },
+                    { value: 'kitchen', label: '🍳 厨房用品' },
+                    { value: 'paper', label: '🧻 纸品' },
+                    { value: 'plastics', label: '🛒 一次性用品' },
+                    { value: 'tools', label: '🔧 工具' },
+                    { value: 'other', label: '📦 其他日用品' }
+                ],
+                skincare: [
+                    { value: 'cleansing', label: '🧴 洁面' },
+                    { value: 'toner', label: '💧 爽肤水' },
+                    { value: 'serum', label: '✨ 精华' },
+                    { value: 'moisturizer', label: '🧴 面霜/乳液' },
+                    { value: 'mask', label: '📋 面膜' },
+                    { value: 'sunscreen', label: '☀️ 防晒' },
+                    { value: 'makeup', label: '💄 彩妆' },
+                    { value: 'perfume', label: '🌸 香水' },
+                    { value: 'other', label: '💆 其他护肤品' }
+                ]
+            };
+            return categories[mainType] || categories.daily;
+        }
+        
+        // 显示条码查询结果
+        function showBarcodeResult(type, message, productInfo) {
+            var resultDiv = document.getElementById('barcodeResult');
+            var resultText = document.getElementById('barcodeResultText');
+            var previewDiv = document.getElementById('barcodeProductPreview');
+            
+            resultDiv.className = 'barcode-result show ' + type;
+            resultText.textContent = message;
+            
+            // 清空并添加商品预览
+            previewDiv.innerHTML = '';
+            if (productInfo) {
+                var imgHtml = productInfo.imageUrl ? 
+                    '<img src="' + productInfo.imageUrl + '" alt="商品图片" onerror="this.style.display=\'none\'">' : '';
+                previewDiv.innerHTML = imgHtml + 
+                    '<div class="barcode-product-info">' +
+                    '<div class="product-name">' + (productInfo.name || '') + '</div>' +
+                    '<div class="product-brand">' + (productInfo.brands || '') + '</div>' +
+                    '</div>';
+            }
+        }
+        
+        // 隐藏条码查询结果
+        function hideBarcodeResult() {
+            var resultDiv = document.getElementById('barcodeResult');
+            resultDiv.className = 'barcode-result';
+        }
+        
+        // 查询条码（带防抖）
+        function queryBarcode() {
+            // 清除之前的定时器
+            if (barcodeDebounceTimer) {
+                clearTimeout(barcodeDebounceTimer);
+            }
+            
+            var barcode = document.getElementById('barcodeInput').value.trim();
+            
+            // 验证格式
+            if (!barcode) {
+                showBarcodeResult('error', '请输入条码');
+                return;
+            }
+            
+            if (!validateBarcode(barcode)) {
+                showBarcodeResult('error', '条码格式错误，应为8-14位数字');
+                return;
+            }
+            
+            // 显示加载状态
+            var queryBtn = document.getElementById('barcodeQueryBtn');
+            queryBtn.disabled = true;
+            queryBtn.textContent = '查询中...';
+            showBarcodeResult('loading', '正在查询商品信息...');
+            
+            // 调用 Open Food Facts API
+            var apiUrl = 'https://world.openfoodfacts.org/api/v2/product/' + barcode + '.json';
+            
+            fetch(apiUrl)
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error('网络请求失败');
+                    }
+                    return response.json();
+                })
+                .then(function(data) {
+                    // 重置按钮状态
+                    queryBtn.disabled = false;
+                    queryBtn.textContent = '查询';
+                    
+                    if (data.status === 1 && data.product) {
+                        // 找到商品
+                        var product = data.product;
+                        var productName = product.product_name || product.product_name_en || '';
+                        var brands = product.brands || '';
+                        
+                        // 自动填充表单
+                        if (productName) {
+                            document.getElementById('itemName').value = productName;
+                        }
+                        
+                        // 品牌拼接到名称
+                        if (brands && productName && !productName.toLowerCase().includes(brands.toLowerCase())) {
+                            document.getElementById('itemName').value = brands + ' ' + productName;
+                        }
+                        
+                        // 智能判断分类
+                        var guessedType = guessCategoryFromTags(product.categories_tags);
+                        document.getElementById('itemType').value = guessedType;
+                        onTypeChange();
+                        
+                        // 自动选择第一个具体分类
+                        var categories = getSpecificCategories(guessedType);
+                        if (categories.length > 0) {
+                            document.getElementById('itemCategory').value = categories[0].value;
+                        }
+                        
+                        // 显示成功结果
+                        var displayName = (brands ? brands + ' ' : '') + productName;
+                        showBarcodeResult('success', '✓ 找到：' + displayName, {
+                            name: productName,
+                            brands: brands,
+                            imageUrl: product.image_url || null
+                        });
+                    } else {
+                        // 未找到商品
+                        showBarcodeResult('error', '未找到该条码，请手动填写');
+                    }
+                })
+                .catch(function(error) {
+                    // 重置按钮状态
+                    queryBtn.disabled = false;
+                    queryBtn.textContent = '查询';
+                    
+                    console.error('Barcode API Error:', error);
+                    showBarcodeResult('error', '网络错误，请稍后重试');
+                });
+        }
+        
+        // 重置条码输入（关闭弹窗时调用）
+        function resetBarcodeInput() {
+            document.getElementById('barcodeInput').value = '';
+            hideBarcodeResult();
+            var queryBtn = document.getElementById('barcodeQueryBtn');
+            queryBtn.disabled = false;
+            queryBtn.textContent = '查询';
+        }
+        
+        // 回车触发表单提交或查询
+        document.getElementById('barcodeInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                queryBarcode();
+            }
+        });
+        
+        // 输入时清除之前的错误提示（带防抖）
+        document.getElementById('barcodeInput').addEventListener('input', function() {
+            var resultDiv = document.getElementById('barcodeResult');
+            if (resultDiv.classList.contains('error')) {
+                if (barcodeDebounceTimer) {
+                    clearTimeout(barcodeDebounceTimer);
+                }
+                barcodeDebounceTimer = setTimeout(function() {
+                    hideBarcodeResult();
+                }, 2000);
+            }
+        });
+        
         function closeModal() {
             // 停止语音识别
             if (recognition && isRecording) {
@@ -2452,6 +2818,9 @@
                     console.log('[Voice] Error stopping recognition:', e);
                 }
             }
+            
+            // 重置条码输入
+            resetBarcodeInput();
             
             document.getElementById('itemModal').classList.remove('show');
             document.body.style.overflow = '';
