@@ -8,7 +8,7 @@
     <meta name="format-detection" content="telephone=no">
     <title>过期了么 - 物品有效期管理</title>
     
-    <!-- 版本: 2026-04-13-v5 -->
+    <!-- 版本: 2026-04-13-v6 -->
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
@@ -3143,8 +3143,12 @@
                 
                 // 合并数据：以云端数据为准，如果有冲突则保留云端
                 // 如果本地有新数据但云端没有，同步到云端
+                // 只处理属于当前房子的物品
                 for (var i = 0; i < items.length; i++) {
                     var localItem = items[i];
+                    // 跳过不属于当前房子的物品
+                    if (localItem.house_id && localItem.house_id !== currentHouseId) continue;
+                    
                     var existsInCloud = false;
                     
                     for (var j = 0; j < cloudItems.length; j++) {
@@ -3195,6 +3199,7 @@
                 var cloudData = cloudItems.map(function(cloudItem) {
                     return {
                         id: cloudItem.local_id,
+                        house_id: cloudItem.house_id,
                         name: cloudItem.name,
                         type: cloudItem.type,
                         category: cloudItem.category,
@@ -3257,6 +3262,9 @@
                     
                     for (var i = 0; i < items.length; i++) {
                         var item = items[i];
+                        // 跳过不属于当前房子的物品
+                        if (item.house_id && item.house_id !== currentHouseId) continue;
+                        
                         if (cloudIds.indexOf(item.id) === -1) {
                             // 新增到云端
                             await supabaseClient.from('items').insert({
@@ -3296,7 +3304,9 @@
                         var cloudId = cloudResult.data[j].local_id;
                         var exists = false;
                         for (var k = 0; k < items.length; k++) {
-                            if (items[k].id === cloudId) {
+                            var localItem = items[k];
+                            // 只检查属于当前房子的物品
+                            if (localItem.id === cloudId && (!localItem.house_id || localItem.house_id === currentHouseId)) {
                                 exists = true;
                                 break;
                             }
@@ -4224,6 +4234,8 @@
             
             for (var i = 0; i < items.length; i++) {
                 var item = items[i];
+                // 关键：只显示当前房子的物品
+                if (currentHouseId && item.house_id !== currentHouseId) continue;
                 if (typeFilter !== 'all' && item.type !== typeFilter) continue;
                 if (statusFilter === 'all') {
                     filtered.push(item);
@@ -4355,31 +4367,48 @@
         function updateStats() {
             var danger = 0, warning = 0, safe = 0, dangerFresh = 0;
             
+            // 统计当前房子的物品
             for (var i = 0; i < items.length; i++) {
-                var urgency = getItemUrgency(items[i]);
+                var item = items[i];
+                // 只统计属于当前房子的物品
+                if (currentHouseId && item.house_id !== currentHouseId) continue;
+                
+                var urgency = getItemUrgency(item);
                 if (urgency.level === 'danger') danger++;
                 else if (urgency.level === 'warning') {
                     warning++;
                     // 同时统计生鲜即将过期
-                    if (isFreshWarning(items[i])) {
+                    if (isFreshWarning(item)) {
                         dangerFresh++;
                     }
                 }
                 else safe++;
             }
             
+            // 计算当前房子的物品总数
+            var currentHouseItemCount = 0;
+            for (var i = 0; i < items.length; i++) {
+                if (!items[i].house_id || items[i].house_id === currentHouseId) {
+                    currentHouseItemCount++;
+                }
+            }
+            
             document.getElementById('dangerCount').textContent = danger;
             document.getElementById('warningCount').textContent = warning;
             document.getElementById('safeCount').textContent = safe;
             document.getElementById('dangerFreshCount').textContent = dangerFresh;
-            document.getElementById('allCount').textContent = items.length;
-            document.getElementById('typeAllCount').textContent = items.length;
+            document.getElementById('allCount').textContent = currentHouseItemCount;
+            document.getElementById('typeAllCount').textContent = currentHouseItemCount;
             
             var foodCount = 0, dailyCount = 0, skincareCount = 0;
             for (var i = 0; i < items.length; i++) {
-                if (items[i].type === 'food') foodCount++;
-                else if (items[i].type === 'daily') dailyCount++;
-                else if (items[i].type === 'skincare') skincareCount++;
+                var item = items[i];
+                // 只统计属于当前房子的物品
+                if (currentHouseId && item.house_id !== currentHouseId) continue;
+                
+                if (item.type === 'food') foodCount++;
+                else if (item.type === 'daily') dailyCount++;
+                else if (item.type === 'skincare') skincareCount++;
             }
             document.getElementById('foodCount').textContent = foodCount;
             document.getElementById('dailyCount').textContent = dailyCount;
@@ -4389,8 +4418,12 @@
         function checkUrgentItems() {
             var urgentItems = [];
             for (var i = 0; i < items.length; i++) {
-                if (getItemUrgency(items[i]).urgent) {
-                    urgentItems.push(items[i]);
+                var item = items[i];
+                // 只检查属于当前房子的物品
+                if (currentHouseId && item.house_id !== currentHouseId) continue;
+                
+                if (getItemUrgency(item).urgent) {
+                    urgentItems.push(item);
                 }
             }
             
@@ -4767,6 +4800,7 @@
             
             var itemData = {
                 id: editingId || 'item_' + Date.now(),
+                house_id: currentHouseId, // 关联到当前房子
                 name: name,
                 type: type,
                 category: category,
@@ -4814,6 +4848,7 @@
         
         function confirmDuplicate() {
             if (pendingItem) {
+                pendingItem.house_id = currentHouseId; // 关联到当前房子
                 items.push(pendingItem);
                 saveItems();
                 renderItems();
