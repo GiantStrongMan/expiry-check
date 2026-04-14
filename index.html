@@ -106,7 +106,7 @@
         
         .settings-btn {
             position: absolute;
-            right: 12px;
+            left: 12px;
             top: 50%;
             transform: translateY(-50%);
             width: 36px;
@@ -312,7 +312,7 @@
         .house-selector {
             display: none;
             position: absolute;
-            left: 12px;
+            right: 12px;
             top: 50%;
             transform: translateY(-50%);
         }
@@ -1626,101 +1626,6 @@
             border-color: var(--primary);
         }
         
-        /* 主页邀请码区域 - 固定显示 */
-        .main-invite-section {
-            display: none;
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 12px 14px;
-            margin-bottom: 12px;
-            border: 2px solid var(--primary);
-            box-shadow: 0 2px 12px rgba(34, 197, 94, 0.15);
-        }
-        
-        .main-invite-section.show {
-            display: block;
-        }
-        
-        .main-invite-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 8px;
-        }
-        
-        .main-invite-title {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--text);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        
-        .main-invite-title .icon {
-            font-size: 1rem;
-        }
-        
-        .main-invite-hint {
-            font-size: 0.7rem;
-            color: var(--text-lighter);
-        }
-        
-        .main-invite-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .main-invite-code {
-            flex: 1;
-            padding: 10px 14px;
-            background: linear-gradient(135deg, #f0fdf4, #dcfce7);
-            border: 2px dashed var(--primary);
-            border-radius: 10px;
-            font-size: 1.3rem;
-            font-weight: 800;
-            letter-spacing: 4px;
-            color: var(--primary-dark);
-            text-align: center;
-            font-family: "SF Mono", "Menlo", "Monaco", monospace;
-        }
-        
-        .main-copy-btn {
-            padding: 10px 16px;
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
-        }
-        
-        .main-copy-btn:active {
-            transform: scale(0.95);
-        }
-        
-        .main-copy-btn.copied {
-            background: linear-gradient(135deg, #10b981, #059669);
-        }
-        
-        .main-invite-expire {
-            margin-top: 6px;
-            font-size: 0.7rem;
-            color: var(--text-lighter);
-            text-align: center;
-        }
-        
-        .main-invite-expire .days-left {
-            color: var(--warning);
-            font-weight: 600;
-        }
-        
         /* 隐藏未登录时的邀请/加入区块 */
         .settings-section.hidden { display: none; }
     </style>
@@ -1795,27 +1700,7 @@
             </div>
         </div>
         
-        <!-- 主页邀请码区域 - 固定显示 -->
-        <div class="main-invite-section" id="mainInviteSection">
-            <div class="main-invite-header">
-                <div class="main-invite-title">
-                    <span class="icon">🎫</span>
-                    <span>邀请家人加入</span>
-                </div>
-                <span class="main-invite-hint">分享此码给家人</span>
-            </div>
-            <div class="main-invite-row">
-                <div class="main-invite-code" id="mainInviteCode">------</div>
-                <button class="main-copy-btn" id="mainCopyBtn" onclick="copyMainInviteCode()">
-                    <span>📋</span>
-                    <span>复制</span>
-                </button>
-            </div>
-            <div class="main-invite-expire">
-                有效期剩 <span class="days-left" id="mainInviteDays">7</span> 天
-            </div>
-        </div>
-        
+
         <div class="tabs">
             <button class="tab-btn active" onclick="filterByType('all')">
                 <span class="icon">📋</span>
@@ -2058,13 +1943,13 @@
                     <button class="settings-btn-primary" id="generateInviteBtn" onclick="generateInviteCode()">
                         <span>🎫</span><span>生成邀请码</span>
                     </button>
-                    <div class="invite-code-display" id="inviteCodeDisplay" style="display:none;">
-                        <div class="invite-code-label">分享此邀请码给家人：</div>
+                    <div class="invite-code-display" id="inviteCodeDisplay">
+                        <div class="invite-code-label" id="inviteCodeLabel">分享此邀请码给家人：</div>
                         <div class="invite-code-row">
-                            <input type="text" id="inviteCodeInput" readonly class="invite-code-input">
-                            <button class="copy-btn" onclick="copyInviteCode()">📋</button>
+                            <input type="text" id="inviteCodeInput" readonly class="invite-code-input" placeholder="点击上方按钮生成">
+                            <button class="copy-btn" id="inviteCopyBtn" onclick="copyInviteCode()" style="display:none;">📋</button>
                         </div>
-                        <div class="invite-code-hint">邀请码有效期7天</div>
+                        <div class="invite-code-hint" id="inviteCodeHint">邀请码有效期7天</div>
                     </div>
                 </div>
                 
@@ -2184,8 +2069,6 @@
             await loadHouses();
             await syncLocalToCloud();
             renderHouseSelector();
-            // 加载主页邀请码
-            loadMainInviteCode();
         }
         
         // 更新认证 UI
@@ -2227,10 +2110,79 @@
             // 加载成员列表
             loadHouseMembers();
             
-            // 清空之前的邀请码显示
-            document.getElementById('inviteCodeDisplay').style.display = 'none';
+            // 检查并显示当前有效的邀请码
+            checkAndDisplayInviteCode();
+            
+            // 重置加入结果
             document.getElementById('joinResult').classList.remove('show');
             document.getElementById('joinHouseCode').value = '';
+        }
+        
+        // 检查并显示有效的邀请码
+        function checkAndDisplayInviteCode() {
+            var codeInput = document.getElementById('inviteCodeInput');
+            var copyBtn = document.getElementById('inviteCopyBtn');
+            var hintEl = document.getElementById('inviteCodeHint');
+            var labelEl = document.getElementById('inviteCodeLabel');
+            
+            try {
+                var saved = localStorage.getItem('guoqiLeMe_currentInviteCode');
+                if (!saved) {
+                    // 没有邀请码，显示提示
+                    codeInput.value = '';
+                    codeInput.placeholder = '点击上方按钮生成';
+                    copyBtn.style.display = 'none';
+                    hintEl.textContent = '邀请码有效期7天';
+                    hintEl.style.color = '';
+                    return;
+                }
+                
+                var data = JSON.parse(saved);
+                
+                // 检查是否属于当前房子
+                if (data.houseId !== currentHouseId) {
+                    codeInput.value = '';
+                    codeInput.placeholder = '点击上方按钮生成';
+                    copyBtn.style.display = 'none';
+                    hintEl.textContent = '邀请码有效期7天';
+                    return;
+                }
+                
+                // 检查是否过期
+                if (data.expiresAt) {
+                    var now = new Date();
+                    var expiresAt = new Date(data.expiresAt);
+                    if (expiresAt <= now) {
+                        // 已过期，移除
+                        localStorage.removeItem('guoqiLeMe_currentInviteCode');
+                        codeInput.value = '';
+                        codeInput.placeholder = '点击上方按钮生成';
+                        copyBtn.style.display = 'none';
+                        hintEl.textContent = '邀请码有效期7天';
+                        return;
+                    }
+                    
+                    // 计算剩余天数
+                    var daysLeft = Math.ceil((expiresAt - now) / (1000 * 60 * 60 * 24));
+                    daysLeft = Math.max(0, Math.min(7, daysLeft));
+                    
+                    // 显示邀请码
+                    codeInput.value = data.code;
+                    copyBtn.style.display = 'flex';
+                    hintEl.innerHTML = '🎉 邀请码有效，剩余 <b style="color: var(--warning);">' + daysLeft + '</b> 天，点击复制分享给家人';
+                    hintEl.style.color = 'var(--primary-dark)';
+                    hintEl.style.fontWeight = '600';
+                } else {
+                    // 没有过期时间，显示邀请码
+                    codeInput.value = data.code;
+                    copyBtn.style.display = 'flex';
+                    hintEl.textContent = '点击复制分享给家人';
+                }
+            } catch (e) {
+                console.log('[Invite] Check error:', e);
+                codeInput.value = '';
+                copyBtn.style.display = 'none';
+            }
         }
         
         // 关闭设置面板
@@ -2412,21 +2364,37 @@
                     saveInviteCodeToLocal(code, currentHouseId);
                 }
                 
+                // 保存到localStorage
+                localStorage.setItem('guoqiLeMe_currentInviteCode', JSON.stringify({
+                    code: code,
+                    houseId: currentHouseId,
+                    expiresAt: expiresAt.toISOString()
+                }));
+                
                 // 显示邀请码 - 设置面板
-                document.getElementById('inviteCodeInput').value = code;
-                document.getElementById('inviteCodeDisplay').style.display = 'block';
+                var codeInput = document.getElementById('inviteCodeInput');
+                var copyBtn = document.getElementById('inviteCopyBtn');
+                var hintEl = document.getElementById('inviteCodeHint');
+                
+                codeInput.value = code;
+                codeInput.placeholder = code;
+                copyBtn.style.display = 'flex';
+                
+                // 显示高亮提示
+                hintEl.innerHTML = '🎉 邀请码 <b style="color: var(--primary); font-size: 1.1em;">' + code + '</b> 已生成！点击复制分享给家人';
+                hintEl.style.color = 'var(--primary-dark)';
+                hintEl.style.fontWeight = '600';
+                
+                // 添加高亮动画效果
+                codeInput.style.animation = 'none';
+                codeInput.offsetHeight;
+                codeInput.style.animation = 'inviteCodePop 0.5s ease';
                 
                 // 滚动到邀请码显示区域
                 var inviteDisplay = document.getElementById('inviteCodeDisplay');
                 if (inviteDisplay) {
                     inviteDisplay.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
-                
-                // 同时在邀请码区域显示一个醒目的提示
-                showInviteCodeHighlight(code);
-                
-                // 更新主页邀请码区域
-                updateMainInviteSection(code, expiresAt);
                 
                 showToast('邀请码: ' + code);
                 
@@ -2441,143 +2409,6 @@
                 showToast('生成邀请码失败');
                 btn.disabled = false;
                 btn.innerHTML = '<span>🎫</span><span>生成邀请码</span>';
-            }
-        }
-        
-        // 更新主页邀请码区域
-        function updateMainInviteSection(code, expiresAt) {
-            var section = document.getElementById('mainInviteSection');
-            var codeEl = document.getElementById('mainInviteCode');
-            var daysEl = document.getElementById('mainInviteDays');
-            
-            if (!section || !codeEl) return;
-            
-            // 显示区域
-            section.classList.add('show');
-            
-            // 更新邀请码
-            codeEl.textContent = code;
-            
-            // 更新剩余天数
-            if (expiresAt && daysEl) {
-                var now = new Date();
-                var daysLeft = Math.ceil((new Date(expiresAt) - now) / (1000 * 60 * 60 * 24));
-                daysLeft = Math.max(0, Math.min(7, daysLeft));
-                daysEl.textContent = daysLeft;
-            }
-            
-            // 添加动画效果
-            codeEl.style.animation = 'none';
-            codeEl.offsetHeight;
-            codeEl.style.animation = 'inviteCodePop 0.5s ease';
-            
-            // 保存到localStorage
-            localStorage.setItem('guoqiLeMe_currentInviteCode', JSON.stringify({
-                code: code,
-                houseId: currentHouseId,
-                expiresAt: expiresAt ? expiresAt.toISOString() : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-            }));
-        }
-        
-        // 复制主页邀请码
-        function copyMainInviteCode() {
-            var code = document.getElementById('mainInviteCode').textContent;
-            if (!code || code === '------') return;
-            
-            var btn = document.getElementById('mainCopyBtn');
-            
-            try {
-                navigator.clipboard.writeText(code).then(function() {
-                    // 显示复制成功状态
-                    btn.classList.add('copied');
-                    btn.innerHTML = '<span>✓</span><span>已复制</span>';
-                    showToast('邀请码 ' + code + ' 已复制');
-                    
-                    // 2秒后恢复
-                    setTimeout(function() {
-                        btn.classList.remove('copied');
-                        btn.innerHTML = '<span>📋</span><span>复制</span>';
-                    }, 2000);
-                }).catch(function() {
-                    // fallback
-                    var textarea = document.createElement('textarea');
-                    textarea.value = code;
-                    document.body.appendChild(textarea);
-                    textarea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textarea);
-                    
-                    btn.classList.add('copied');
-                    btn.innerHTML = '<span>✓</span><span>已复制</span>';
-                    showToast('邀请码 ' + code + ' 已复制');
-                    
-                    setTimeout(function() {
-                        btn.classList.remove('copied');
-                        btn.innerHTML = '<span>📋</span><span>复制</span>';
-                    }, 2000);
-                });
-            } catch (e) {
-                showToast('复制失败');
-            }
-        }
-        
-        // 加载主页邀请码（从localStorage恢复）
-        function loadMainInviteCode() {
-            if (!currentHouseId) return;
-            
-            try {
-                var saved = localStorage.getItem('guoqiLeMe_currentInviteCode');
-                if (!saved) return;
-                
-                var data = JSON.parse(saved);
-                
-                // 检查是否属于当前房子
-                if (data.houseId !== currentHouseId) return;
-                
-                // 检查是否过期
-                if (data.expiresAt) {
-                    var now = new Date();
-                    var expiresAt = new Date(data.expiresAt);
-                    if (expiresAt <= now) {
-                        // 已过期，移除
-                        localStorage.removeItem('guoqiLeMe_currentInviteCode');
-                        return;
-                    }
-                    
-                    // 更新剩余天数
-                    var daysLeft = Math.ceil((expiresAt - now) / (1000 * 60 * 60 * 24));
-                    daysLeft = Math.max(0, Math.min(7, daysLeft));
-                    document.getElementById('mainInviteDays').textContent = daysLeft;
-                }
-                
-                // 显示邀请码
-                var section = document.getElementById('mainInviteSection');
-                var codeEl = document.getElementById('mainInviteCode');
-                if (section && codeEl) {
-                    section.classList.add('show');
-                    codeEl.textContent = data.code;
-                }
-            } catch (e) {
-                console.log('[Invite] Load from localStorage error:', e);
-            }
-        }
-        
-        // 高亮显示邀请码（视觉增强效果）
-        function showInviteCodeHighlight(code) {
-            var inputEl = document.getElementById('inviteCodeInput');
-            if (!inputEl) return;
-            
-            // 添加高亮动画效果
-            inputEl.style.animation = 'none';
-            inputEl.offsetHeight; // 触发重绘
-            inputEl.style.animation = 'inviteCodePop 0.5s ease';
-            
-            // 添加复制提示文字
-            var hintEl = inputEl.parentElement.nextElementSibling;
-            if (hintEl && hintEl.classList.contains('invite-code-hint')) {
-                hintEl.innerHTML = '🎉 邀请码 <b style="color: var(--primary); font-size: 1.1em;">' + code + '</b> 已生成！点击复制分享给家人';
-                hintEl.style.color = 'var(--primary-dark)';
-                hintEl.style.fontWeight = '600';
             }
         }
         
@@ -2911,9 +2742,6 @@
         async function handleLogout() {
             try {
                 await supabaseClient.auth.signOut();
-                // 隐藏主页邀请码区域
-                var mainSection = document.getElementById('mainInviteSection');
-                if (mainSection) mainSection.classList.remove('show');
                 showToast('已退出登录');
             } catch (err) {
                 console.error('[Auth] Logout error:', err);
@@ -3034,8 +2862,6 @@
             var select = document.getElementById('houseSelect');
             currentHouseId = select.value;
             await syncFromCloud();
-            // 加载当前房子的邀请码
-            loadMainInviteCode();
         }
         
         // 数据同步
