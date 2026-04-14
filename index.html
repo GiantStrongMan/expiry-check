@@ -8,7 +8,7 @@
     <meta name="format-detection" content="telephone=no">
     <title>过期了么 - 物品有效期管理</title>
     
-    <!-- 版本: 2026-04-14-v15-手机登录超时修复 -->
+    <!-- 版本: 2026-04-14-v16-手机登录超时修复 -->
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- html5-qrcode 条码扫描库 -->
@@ -3304,12 +3304,24 @@
             submitBtn.disabled = true;
             submitBtn.textContent = isRegisterMode ? '注册中...' : '登录中...';
             
+            // 超时处理 - 15秒
+            var timeoutMs = 15000;
+            var timeoutPromise = new Promise(function(resolve, reject) {
+                setTimeout(function() {
+                    reject(new Error('TIMEOUT'));
+                }, timeoutMs);
+            });
+            
             try {
                 if (isRegisterMode) {
-                    var signUpResult = await supabaseClient.auth.signUp({
-                        email: email,
-                        password: password
-                    });
+                    // 注册也添加超时保护
+                    var signUpResult = await Promise.race([
+                        supabaseClient.auth.signUp({
+                            email: email,
+                            password: password
+                        }),
+                        timeoutPromise
+                    ]);
                     
                     if (signUpResult.error) {
                         throw signUpResult.error;
@@ -3323,10 +3335,14 @@
                     showToast('注册成功！请查收验证邮件');
                     closeAuthModal();
                 } else {
-                    var signInResult = await supabaseClient.auth.signInWithPassword({
-                        email: email,
-                        password: password
-                    });
+                    // 登录添加15秒超时
+                    var signInResult = await Promise.race([
+                        supabaseClient.auth.signInWithPassword({
+                            email: email,
+                            password: password
+                        }),
+                        timeoutPromise
+                    ]);
                     
                     if (signInResult.error) {
                         throw signInResult.error;
@@ -3342,7 +3358,11 @@
                 }
             } catch (err) {
                 console.error('[Auth] Error:', err);
-                errorEl.textContent = err.message || '操作失败，请重试';
+                if (err.message === 'TIMEOUT') {
+                    errorEl.textContent = '登录超时，请检查网络';
+                } else {
+                    errorEl.textContent = err.message || '操作失败，请重试';
+                }
                 errorEl.classList.add('show');
             } finally {
                 submitBtn.disabled = false;
