@@ -8,7 +8,7 @@
     <meta name="format-detection" content="telephone=no">
     <title>过期了么 - 物品有效期管理</title>
     
-    <!-- 版本: 2026-04-13-v6 -->
+    <!-- 版本: 2026-04-13-v7 -->
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
@@ -137,6 +137,7 @@
             align-items: center;
             gap: 8px;
             z-index: 10;
+            max-width: calc(100% - 120px); /* 留出左边设置按钮的空间 */
         }
         
         .auth-btn {
@@ -151,6 +152,7 @@
             display: flex;
             align-items: center;
             gap: 4px;
+            white-space: nowrap;
         }
         
         .auth-btn:hover {
@@ -163,10 +165,12 @@
             display: flex;
             align-items: center;
             gap: 6px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
         }
         
         .auth-user .email {
-            max-width: 120px;
+            max-width: 80px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -180,10 +184,18 @@
             color: white;
             font-size: 0.75rem;
             cursor: pointer;
+            white-space: nowrap;
         }
         
         .auth-user .logout-btn:hover {
             background: rgba(255,255,255,0.3);
+        }
+        
+        /* 登录后的头部信息容器 */
+        .auth-info-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
         
         /* 登录模态框 */
@@ -311,26 +323,23 @@
         /* 房子切换器 */
         .house-selector {
             display: none;
-            position: absolute;
-            right: 12px;
-            top: 50%;
-            transform: translateY(-50%);
         }
         
-        .house-selector.show { display: flex; }
+        .house-selector.show { display: block; }
         
         .house-selector select {
-            padding: 6px 28px 6px 10px;
+            padding: 4px 24px 4px 8px;
             background: rgba(255,255,255,0.2);
             border: 1px solid rgba(255,255,255,0.3);
-            border-radius: 8px;
+            border-radius: 6px;
             color: white;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             cursor: pointer;
             appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
             background-repeat: no-repeat;
-            background-position: right 8px center;
+            background-position: right 6px center;
+            max-width: 100px;
         }
         
         .house-selector select option {
@@ -1636,15 +1645,15 @@
             <span class="header-icon">⏰</span>
             <h1>过期了么</h1>
         </div>
-        <div class="house-selector" id="houseSelector">
-            <select id="houseSelect" onchange="onHouseChange()">
-                <option value="">加载中...</option>
-            </select>
-        </div>
         <div class="auth-area" id="authArea">
             <button class="auth-btn" onclick="openAuthModal()">
                 <span>🔑</span><span>登录</span>
             </button>
+            <div class="house-selector" id="houseSelector">
+                <select id="houseSelect" onchange="onHouseChange()">
+                    <option value="">加载中...</option>
+                </select>
+            </div>
         </div>
         <button class="settings-btn" id="settingsBtn" onclick="openSettingsModal()" title="设置" style="display:none;">
             <span>⚙️</span>
@@ -2082,19 +2091,26 @@
         // 更新认证 UI
         function updateAuthUI() {
             var authArea = document.getElementById('authArea');
+            var houseSelector = document.getElementById('houseSelector');
             var settingsBtn = document.getElementById('settingsBtn');
             if (!authArea) return;
             
             if (currentUser) {
                 authArea.innerHTML = '<div class="auth-user">' +
+                    '<div class="auth-info-group">' +
                     '<span>👤</span>' +
                     '<span class="email" title="' + escapeHtml(currentUser.email) + '">' + escapeHtml(currentUser.email) + '</span>' +
                     '<button class="logout-btn" onclick="handleLogout()">退出</button>' +
+                    '</div>' +
                     '</div>';
+                // 显示房子选择器
+                if (houseSelector) houseSelector.classList.add('show');
                 settingsBtn.style.display = 'flex';
             } else {
                 authArea.innerHTML = '<button class="auth-btn" onclick="openAuthModal()">' +
                     '<span>🔑</span><span>登录</span></button>';
+                // 隐藏房子选择器
+                if (houseSelector) houseSelector.classList.remove('show');
                 settingsBtn.style.display = 'none';
             }
         }
@@ -2861,6 +2877,9 @@
                            (house.id === currentHouseId ? ' selected' : '') + '>' + 
                            escapeHtml(house.name) + '</option>';
                 }).join('');
+            } else if (currentUser && houses.length === 1) {
+                // 只有一个房子时隐藏选择器，但仍显示在设置面板中
+                selector.classList.remove('show');
             } else {
                 selector.classList.remove('show');
             }
