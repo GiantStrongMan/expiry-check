@@ -8,7 +8,7 @@
     <meta name="format-detection" content="telephone=no">
     <title>过期了么 - 物品有效期管理</title>
     
-    <!-- 版本: 2026-04-14-v10 -->
+    <!-- 版本: 2026-04-14-v11 -->
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
@@ -2373,6 +2373,40 @@
             btn.innerHTML = '<span>⏳</span><span>生成中...</span>';
             
             try {
+                // 【前置检查】验证房子在数据库中存在
+                console.log('[Invite] 验证房子存在性:', currentHouseId);
+                var houseCheck = await supabaseClient
+                    .from('houses')
+                    .select('id, name')
+                    .eq('id', currentHouseId)
+                    .single();
+                
+                if (houseCheck.error || !houseCheck.data) {
+                    console.error('[Invite] ❌ 房子在数据库中不存在!', houseCheck);
+                    // 尝试从本地数据恢复
+                    var localHouse = houses.find(function(h) { return h.id === currentHouseId; });
+                    if (localHouse) {
+                        console.log('[Invite] 本地有房子数据，尝试重新创建...');
+                        // 重新插入
+                        var retryResult = await supabaseClient
+                            .from('houses')
+                            .upsert({
+                                id: localHouse.id,
+                                name: localHouse.name,
+                                owner_id: currentUser.id
+                            }, { onConflict: 'id' });
+                        console.log('[Invite] 重新插入结果:', retryResult);
+                        
+                        if (retryResult.error) {
+                            throw new Error('房子数据丢失，请重新创建房子');
+                        }
+                        console.log('[Invite] ✅ 房子已重新创建');
+                    } else {
+                        throw new Error('房子不存在，请重新创建');
+                    }
+                }
+                console.log('[Invite] ✅ 房子验证通过:', houseCheck.data);
+                
                 // 生成6位邀请码
                 var code = generateRandomCode(6);
                 
@@ -2393,9 +2427,11 @@
                     .single();
                 
                 if (result.error) {
-                    // 如果表不存在，尝试使用 localStorage 方案
-                    console.log('[Invite] Table may not exist, using localStorage');
+                    // 如果表不存在或插入失败，使用 localStorage 方案
+                    console.log('[Invite] Table insert failed, using localStorage:', result.error);
                     saveInviteCodeToLocal(code, currentHouseId);
+                } else {
+                    console.log('[Invite] ✅ 邀请码已保存到数据库:', result.data);
                 }
                 
                 // 获取当前房子名称用于显示
@@ -2668,27 +2704,36 @@
                             id: houseId,
                             name: houseName,
                             owner_id: inviteResult.data ? inviteResult.data.created_by : currentUser.id
-                        }, { onConflict: 'id' });
+                        }, { onConflict: 'id', returning: 'representation' })
+                        .select()
+                        .single();
                     
                     console.log('[Join] upsert 结果:', createHouseResult);
                     
                     if (createHouseResult.error) {
-                        console.log('[Join] upsert 失败:', createHouseResult.error);
-                        // 尝试使用 RPC 函数来创建（如果有的话）
-                        try {
-                            console.log('[Join] 尝试使用 RPC 创建...');
-                            var rpcResult = await supabaseClient.rpc('create_house_if_not_exists', {
-                                p_id: houseId,
-                                p_name: houseName,
-                                p_owner: inviteResult.data ? inviteResult.data.created_by : currentUser.id
-                            });
-                            console.log('[Join] RPC 结果:', rpcResult);
-                        } catch (rpcErr) {
-                            console.log('[Join] RPC 也失败:', rpcErr);
-                        }
-                    } else {
-                        console.log('[Join] upsert 成功创建/更新 house 记录');
+                        console.error('[Join] ❌ upsert 失败:', createHouseResult.error);
+                        resultEl.className = 'join-result error show';
+                        resultEl.textContent = '创建房子失败：' + (createHouseResult.error.message || '数据库错误');
+                        return;
                     }
+                    
+                    console.log('[Join] ✅ upsert 成功创建/更新 house 记录');
+                    
+                    // 【关键验证】再次确认 house 存在
+                    console.log('[Join] 验证 house 记录...');
+                    var verifyHouse = await supabaseClient
+                        .from('houses')
+                        .select('id')
+                        .eq('id', houseId)
+                        .single();
+                    
+                    if (verifyHouse.error || !verifyHouse.data) {
+                        console.error('[Join] ❌ 验证失败，house 仍然不存在!');
+                        resultEl.className = 'join-result error show';
+                        resultEl.textContent = '房子创建失败，请联系管理员检查RLS策略';
+                        return;
+                    }
+                    console.log('[Join] ✅ house 验证通过');
                 } else {
                     console.log('[Join] houses 表中已有该记录:', houseCheck.data);
                 }
@@ -2869,7 +2914,10 @@
                 return;
             }
             
+            console.log('[House] 开始创建房子:', name, '用户:', currentUser.id);
+            
             try {
+                // 使用 upsert 插入（返回所有列）
                 var result = await supabaseClient
                     .from('houses')
                     .upsert({
@@ -2879,15 +2927,47 @@
                     .select()
                     .single();
                 
-                if (result.error) throw result.error;
+                console.log('[House] upsert 原始结果:', result);
+                
+                if (result.error) {
+                    console.error('[House] upsert 错误:', result.error);
+                    throw result.error;
+                }
+                
+                if (!result.data) {
+                    console.error('[House] upsert 返回空数据');
+                    throw new Error('创建房子失败：数据库返回空数据');
+                }
+                
+                console.log('[House] upsert 返回的数据:', result.data);
+                
+                var houseId = result.data.id;
+                
+                // 【关键验证】再次查询数据库确认记录存在
+                console.log('[House] 验证 houses 表记录...');
+                var verifyResult = await supabaseClient
+                    .from('houses')
+                    .select('id, name, owner_id')
+                    .eq('id', houseId)
+                    .single();
+                
+                console.log('[House] 验证结果:', verifyResult);
+                
+                if (verifyResult.error || !verifyResult.data) {
+                    console.error('[House] 验证失败：houses 表中没有该记录！');
+                    throw new Error('创建房子失败：数据未保存到数据库');
+                }
+                
+                console.log('[House] ✅ 验证成功，房子已保存到数据库');
                 
                 // 添加到本地列表
                 houses.push(result.data);
-                currentHouseId = result.data.id;
+                currentHouseId = houseId;
                 
                 // 保存到本地
                 localStorage.setItem('guoqiLeMe_houses', JSON.stringify(houses));
                 localStorage.setItem('guoqiLeMe_currentHouseId', currentHouseId);
+                console.log('[House] 已保存到 localStorage:', { houses: houses.length, currentHouseId });
                 
                 // 隐藏表单
                 document.getElementById('createHouseForm').style.display = 'none';
@@ -2900,10 +2980,13 @@
                 renderItems();
                 
                 showToast('新房子「' + name + '」已创建');
+                console.log('[House] ✅ 房子创建流程完成');
                 
             } catch (err) {
-                console.error('[House] Create error:', err);
-                showToast('创建房子失败');
+                console.error('[House] 创建房子失败:', err);
+                var errorMsg = '创建房子失败';
+                if (err.message) errorMsg += ': ' + err.message;
+                showToast(errorMsg);
             }
         }
         
