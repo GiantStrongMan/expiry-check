@@ -8,7 +8,7 @@
     <meta name="format-detection" content="telephone=no">
     <title>过期了么 - 物品有效期管理</title>
     
-    <!-- 版本: 2026-04-13-v4 -->
+    <!-- 版本: 2026-04-13-v5 -->
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
@@ -1334,6 +1334,13 @@
             to { -webkit-transform: scale(1) translateY(0); transform: scale(1) translateY(0); opacity: 1; }
         }
         
+        /* 邀请码高亮动画 */
+        @keyframes inviteCodePop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); box-shadow: 0 0 20px rgba(34, 197, 94, 0.5); }
+            100% { transform: scale(1); }
+        }
+        
         .context-menu-item {
             display: -webkit-box;
             display: -ms-flexbox;
@@ -2377,6 +2384,15 @@
                 document.getElementById('inviteCodeInput').value = code;
                 document.getElementById('inviteCodeDisplay').style.display = 'block';
                 
+                // 滚动到邀请码显示区域
+                var inviteDisplay = document.getElementById('inviteCodeDisplay');
+                if (inviteDisplay) {
+                    inviteDisplay.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                
+                // 同时在邀请码区域显示一个醒目的提示
+                showInviteCodeHighlight(code);
+                
                 showToast('邀请码已生成');
                 
                 // 3秒后恢复按钮
@@ -2390,6 +2406,25 @@
                 showToast('生成邀请码失败');
                 btn.disabled = false;
                 btn.innerHTML = '<span>🎫</span><span>生成邀请码</span>';
+            }
+        }
+        
+        // 高亮显示邀请码（视觉增强效果）
+        function showInviteCodeHighlight(code) {
+            var inputEl = document.getElementById('inviteCodeInput');
+            if (!inputEl) return;
+            
+            // 添加高亮动画效果
+            inputEl.style.animation = 'none';
+            inputEl.offsetHeight; // 触发重绘
+            inputEl.style.animation = 'inviteCodePop 0.5s ease';
+            
+            // 添加复制提示文字
+            var hintEl = inputEl.parentElement.nextElementSibling;
+            if (hintEl && hintEl.classList.contains('invite-code-hint')) {
+                hintEl.innerHTML = '🎉 邀请码 <b style="color: var(--primary); font-size: 1.1em;">' + code + '</b> 已生成！点击复制分享给家人';
+                hintEl.style.color = 'var(--primary-dark)';
+                hintEl.style.fontWeight = '600';
             }
         }
         
