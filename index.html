@@ -2546,26 +2546,30 @@
             try {
                 // 步骤1: 从数据库查询 invite_codes
                 console.log('[Join] 步骤1: 查询 invite_codes 表...');
-                var inviteResult = await supabaseClient
-                    .from('invite_codes')
-                    .select('*')
-                    .eq('code', code)
-                    .gt('expires_at', new Date().toISOString())
-                    .single();
+                var inviteResult;
+                var queryError = null;
                 
-                console.log('[Join] invite_codes 查询结果:', inviteResult);
+                try {
+                    inviteResult = await supabaseClient
+                        .from('invite_codes')
+                        .select('*')
+                        .eq('code', code)
+                        .gt('expires_at', new Date().toISOString())
+                        .single();
+                    
+                    console.log('[Join] invite_codes 查询完成 - status:', inviteResult.status, 'error:', inviteResult.error, 'hasData:', !!inviteResult.data);
+                } catch (queryErr) {
+                    queryError = queryErr;
+                    console.error('[Join] invite_codes 查询抛出异常:', queryErr);
+                }
                 
                 var houseId = null;
                 var houseName = '家庭共享房子';
                 
-                if (inviteResult.data) {
-                    houseId = inviteResult.data.house_id;
-                    houseName = inviteResult.data.house_name || '家庭共享房子';
-                    console.log('[Join] 从数据库获取到 house_id:', houseId);
-                } else {
-                    // invite_codes 查询失败或无数据，尝试从 localStorage 获取
-                    console.log('[Join] 数据库查询无数据或失败，尝试从 localStorage 获取...');
-                    console.log('[Join] inviteResult.error:', inviteResult.error);
+                // 处理查询结果（检查 error 对象和空数据）
+                if (queryError) {
+                    // 查询抛出异常
+                    console.log('[Join] 分支A: 查询异常，检查 localStorage...');
                     var codes = JSON.parse(localStorage.getItem('guoqiLeMe_inviteCodes') || '{}');
                     if (codes[code]) {
                         var codeInfo = codes[code];
@@ -2573,7 +2577,49 @@
                             houseId = codeInfo.houseId;
                             houseName = codeInfo.houseName || '家庭共享房子';
                             console.log('[Join] 从 localStorage 获取到 house_id:', houseId);
-                            console.log('[Join] 从 localStorage 获取到 houseName:', houseName);
+                        } else {
+                            console.log('[Join] localStorage 中的邀请码已过期');
+                            delete codes[code];
+                            localStorage.setItem('guoqiLeMe_inviteCodes', JSON.stringify(codes));
+                        }
+                    } else {
+                        console.log('[Join] localStorage 中也没有邀请码记录');
+                    }
+                } else if (inviteResult.error) {
+                    // 查询返回 error 对象
+                    console.log('[Join] 分支B: 查询返回 error 对象:', inviteResult.error);
+                    
+                    // 尝试从 localStorage 获取作为后备
+                    var codes = JSON.parse(localStorage.getItem('guoqiLeMe_inviteCodes') || '{}');
+                    if (codes[code]) {
+                        var codeInfo = codes[code];
+                        if (new Date(codeInfo.expiresAt) > new Date()) {
+                            houseId = codeInfo.houseId;
+                            houseName = codeInfo.houseName || '家庭共享房子';
+                            console.log('[Join] 从 localStorage 获取到 house_id:', houseId);
+                        } else {
+                            console.log('[Join] localStorage 中的邀请码已过期');
+                            delete codes[code];
+                            localStorage.setItem('guoqiLeMe_inviteCodes', JSON.stringify(codes));
+                        }
+                    }
+                } else if (inviteResult.data) {
+                    // 查询成功且有数据
+                    console.log('[Join] 分支C: 查询成功，获取到数据:', inviteResult.data);
+                    houseId = inviteResult.data.house_id;
+                    houseName = inviteResult.data.house_name || '家庭共享房子';
+                    console.log('[Join] 从数据库获取到 house_id:', houseId);
+                } else {
+                    // 查询成功但无数据（邀请码不存在或过期）
+                    console.log('[Join] 分支D: 查询成功但无数据 (邀请码不存在或已过期)');
+                    console.log('[Join] 尝试从 localStorage 获取...');
+                    var codes = JSON.parse(localStorage.getItem('guoqiLeMe_inviteCodes') || '{}');
+                    if (codes[code]) {
+                        var codeInfo = codes[code];
+                        if (new Date(codeInfo.expiresAt) > new Date()) {
+                            houseId = codeInfo.houseId;
+                            houseName = codeInfo.houseName || '家庭共享房子';
+                            console.log('[Join] 从 localStorage 获取到 house_id:', houseId);
                         } else {
                             console.log('[Join] localStorage 中的邀请码已过期');
                             delete codes[code];
@@ -2584,9 +2630,11 @@
                     }
                 }
                 
+                console.log('[Join] 处理完成，houseId:', houseId, 'houseName:', houseName);
+                
                 if (!houseId) {
                     console.log('[Join] houseId 为空，邀请码无效');
-                    if (inviteResult.error) {
+                    if (queryError || (inviteResult && inviteResult.error)) {
                         resultEl.textContent = '无法验证邀请码（数据库查询失败），请稍后重试';
                     } else {
                         resultEl.textContent = '邀请码无效或已过期';
