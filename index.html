@@ -2010,6 +2010,9 @@
                         <span id="currentHouseName">加载中...</span>
                     </div>
                     <div class="house-role" id="currentHouseRole"></div>
+                    <button class="settings-btn-secondary" id="quickInviteBtn" onclick="openSettingsAndGenerate()" style="margin-top: 10px;">
+                        <span>🎫</span><span>生成邀请码</span>
+                    </button>
                 </div>
                 
                 <!-- 邀请家人 -->
@@ -2024,7 +2027,7 @@
                             <input type="text" id="inviteCodeInput" readonly class="invite-code-input">
                             <button class="copy-btn" onclick="copyInviteCode()">📋</button>
                         </div>
-                        <div class="invite-code-hint">邀请码有效期24小时</div>
+                        <div class="invite-code-hint">邀请码有效期7天</div>
                     </div>
                 </div>
                 
@@ -2324,6 +2327,15 @@
             listEl.innerHTML = html;
         }
         
+        // 打开设置并生成邀请码
+        function openSettingsAndGenerate() {
+            openSettingsModal();
+            // 延迟一点确保模态框已打开
+            setTimeout(function() {
+                generateInviteCode();
+            }, 100);
+        }
+        
         // 生成邀请码
         async function generateInviteCode() {
             if (!currentUser || !currentHouseId) {
@@ -2339,9 +2351,9 @@
                 // 生成6位邀请码
                 var code = generateRandomCode(6);
                 
-                // 计算过期时间（24小时后）
+                // 计算过期时间（7天后）
                 var expiresAt = new Date();
-                expiresAt.setHours(expiresAt.getHours() + 24);
+                expiresAt.setDate(expiresAt.getDate() + 7);
                 
                 // 尝试插入到 invite_codes 表
                 var result = await supabaseClient
@@ -2397,7 +2409,7 @@
             codes[code] = {
                 houseId: houseId,
                 createdBy: currentUser.id,
-                expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
             };
             localStorage.setItem('guoqiLeMe_inviteCodes', JSON.stringify(codes));
         }
