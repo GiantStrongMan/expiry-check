@@ -8,9 +8,11 @@
     <meta name="format-detection" content="telephone=no">
     <title>过期了么 - 物品有效期管理</title>
     
-    <!-- 版本: 2026-04-14-v12 -->
+    <!-- 版本: 2026-04-14-v13 -->
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- html5-qrcode 条码扫描库 -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script>
         // Supabase 配置
         window.SUPABASE_URL = 'https://sgaoexmuoiczshfzbkob.supabase.co';
@@ -1331,6 +1333,170 @@
             .card-name { font-size: 1rem; }
         }
         
+        /* ========== 扫码模态框样式 ========== */
+        .scanner-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 4000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        
+        .scanner-modal.show { display: flex; }
+        
+        .scanner-container {
+            width: 280px;
+            height: 280px;
+            position: relative;
+            border-radius: 16px;
+            overflow: hidden;
+            background: #000;
+        }
+        
+        #qr-reader {
+            width: 100%;
+            height: 100%;
+        }
+        
+        #qr-reader video {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover;
+        }
+        
+        .scanner-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .scanner-corner {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border-color: var(--primary);
+            border-style: solid;
+            border-width: 0;
+        }
+        
+        .scanner-corner.top-left {
+            top: 15px;
+            left: 15px;
+            border-top-width: 4px;
+            border-left-width: 4px;
+            border-top-left-radius: 8px;
+        }
+        
+        .scanner-corner.top-right {
+            top: 15px;
+            right: 15px;
+            border-top-width: 4px;
+            border-right-width: 4px;
+            border-top-right-radius: 8px;
+        }
+        
+        .scanner-corner.bottom-left {
+            bottom: 15px;
+            left: 15px;
+            border-bottom-width: 4px;
+            border-left-width: 4px;
+            border-bottom-left-radius: 8px;
+        }
+        
+        .scanner-corner.bottom-right {
+            bottom: 15px;
+            right: 15px;
+            border-bottom-width: 4px;
+            border-right-width: 4px;
+            border-bottom-right-radius: 8px;
+        }
+        
+        .scanner-scan-line {
+            position: absolute;
+            left: 20px;
+            right: 20px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+            animation: scanLine 2s ease-in-out infinite;
+        }
+        
+        @keyframes scanLine {
+            0%, 100% { top: 20px; }
+            50% { top: calc(100% - 22px); }
+        }
+        
+        .scanner-title {
+            color: white;
+            font-size: 1rem;
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .scanner-hint {
+            color: rgba(255,255,255,0.7);
+            font-size: 0.85rem;
+            margin-top: 8px;
+            text-align: center;
+        }
+        
+        .scanner-close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .scanner-torch-btn {
+            margin-top: 20px;
+            padding: 10px 24px;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 25px;
+            color: white;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .scanner-torch-btn.active {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+        
+        .barcode-scan-btn {
+            padding: 10px 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            margin-left: 6px;
+        }
+        
         /* ========== 设置面板样式 ========== */
         .settings-modal {
             display: none;
@@ -1791,6 +1957,7 @@
                     <div class="barcode-input-row">
                         <input type="text" id="barcodeInput" placeholder="输入条码（如：3017620422003）" maxlength="14">
                         <button type="button" class="barcode-query-btn" id="barcodeQueryBtn" onclick="queryBarcode()">查询</button>
+                        <button type="button" class="barcode-scan-btn" id="barcodeScanBtn" onclick="openScanner()">📷 扫码</button>
                     </div>
                     <div class="barcode-result" id="barcodeResult">
                         <span id="barcodeResultText"></span>
@@ -1931,6 +2098,26 @@
     <div class="img-preview-modal" id="imgPreviewModal">
         <button class="close-btn" onclick="closeImagePreview()">✕</button>
         <img id="previewImage" src="" alt="预览">
+    </div>
+    
+    <!-- 摄像头扫码模态框 -->
+    <div class="scanner-modal" id="scannerModal">
+        <button class="scanner-close-btn" onclick="closeScanner()">✕</button>
+        <div class="scanner-container">
+            <div id="qr-reader"></div>
+            <div class="scanner-overlay">
+                <div class="scanner-corner top-left"></div>
+                <div class="scanner-corner top-right"></div>
+                <div class="scanner-corner bottom-left"></div>
+                <div class="scanner-corner bottom-right"></div>
+                <div class="scanner-scan-line"></div>
+            </div>
+        </div>
+        <div class="scanner-title">📷 将条码放入扫描框内</div>
+        <div class="scanner-hint">支持 EAN-8、EAN-13、UPC-A 等条码</div>
+        <button class="scanner-torch-btn" id="torchBtn" onclick="toggleTorch()">
+            <span>🔦</span><span>开启闪光灯</span>
+        </button>
     </div>
     
     <!-- 设置面板模态框 -->
@@ -4869,6 +5056,173 @@
                 }, 2000);
             }
         });
+        
+        // ========== 摄像头扫码功能 ==========
+        var html5QrCode = null;
+        var isScanning = false;
+        var torchTrack = null;
+        
+        // 打开扫码
+        function openScanner() {
+            var scannerModal = document.getElementById('scannerModal');
+            scannerModal.classList.add('show');
+            
+            // 重置闪光灯状态
+            var torchBtn = document.getElementById('torchBtn');
+            torchBtn.classList.remove('active');
+            torchBtn.innerHTML = '<span>🔦</span><span>开启闪光灯</span>';
+            torchTrack = null;
+            
+            // 初始化扫码
+            startScanning();
+        }
+        
+        // 开始扫码
+        function startScanning() {
+            if (typeof Html5Qrcode === 'undefined') {
+                showToast('扫码库加载失败，请刷新重试');
+                closeScanner();
+                return;
+            }
+            
+            html5QrCode = new Html5Qrcode("qr-reader");
+            
+            var config = {
+                fps: 10,
+                qrbox: { width: 250, height: 150 },
+                aspectRatio: 1.0,
+                formatsToSupport: [
+                    Html5QrcodeSupportedFormats.EAN_13,
+                    Html5QrcodeSupportedFormats.EAN_8,
+                    Html5QrcodeSupportedFormats.UPC_A,
+                    Html5QrcodeSupportedFormats.UPC_E,
+                    Html5QrcodeSupportedFormats.CODE_128,
+                    Html5QrcodeSupportedFormats.CODE_39,
+                    Html5QrcodeSupportedFormats.ITF
+                ]
+            };
+            
+            html5QrCode.start(
+                { facingMode: "environment" },
+                config,
+                onScanSuccess,
+                function(error) {
+                    // 忽略扫描错误，持续扫描
+                }
+            ).then(function() {
+                isScanning = true;
+                console.log('[Scanner] Started successfully');
+                
+                // 保存video track用于闪光灯控制
+                var videoElement = document.querySelector('#qr-reader video');
+                if (videoElement && videoElement.srcObject) {
+                    var tracks = videoElement.srcObject.getVideoTracks();
+                    if (tracks.length > 0) {
+                        torchTrack = tracks[0];
+                    }
+                }
+            }).catch(function(err) {
+                console.error('[Scanner] Start error:', err);
+                showToast('无法访问摄像头，请检查权限设置');
+                closeScanner();
+            });
+        }
+        
+        // 扫码成功回调
+        function onScanSuccess(decodedText) {
+            console.log('[Scanner] Scanned:', decodedText);
+            
+            // 震动反馈（如果支持）
+            if (navigator.vibrate) {
+                navigator.vibrate(200);
+            }
+            
+            // 验证是否为数字条码
+            if (/^\d+$/.test(decodedText) && decodedText.length >= 8 && decodedText.length <= 14) {
+                // 停止扫码
+                stopScanning();
+                
+                // 关闭扫码模态框
+                closeScanner();
+                
+                // 填充条码并查询
+                document.getElementById('barcodeInput').value = decodedText;
+                queryBarcode();
+            } else {
+                // 非标准条码也尝试处理
+                document.getElementById('barcodeInput').value = decodedText;
+                queryBarcode();
+                closeScanner();
+            }
+        }
+        
+        // 停止扫码
+        function stopScanning() {
+            if (html5QrCode && isScanning) {
+                html5QrCode.stop().then(function() {
+                    isScanning = false;
+                    html5QrCode.clear();
+                    console.log('[Scanner] Stopped');
+                }).catch(function(err) {
+                    console.error('[Scanner] Stop error:', err);
+                });
+            }
+            
+            // 关闭闪光灯
+            if (torchTrack) {
+                try {
+                    var capabilities = torchTrack.getCapabilities();
+                    if (capabilities.torch) {
+                        torchTrack.applyConstraints({ advanced: [{ torch: false }] });
+                    }
+                } catch (e) {}
+            }
+        }
+        
+        // 关闭扫码
+        function closeScanner() {
+            stopScanning();
+            
+            var scannerModal = document.getElementById('scannerModal');
+            scannerModal.classList.remove('show');
+        }
+        
+        // 切换闪光灯
+        function toggleTorch() {
+            var torchBtn = document.getElementById('torchBtn');
+            
+            if (!torchTrack) {
+                showToast('当前设备不支持闪光灯');
+                return;
+            }
+            
+            try {
+                var capabilities = torchTrack.getCapabilities();
+                if (!capabilities.torch) {
+                    showToast('当前设备不支持闪光灯');
+                    return;
+                }
+                
+                var isActive = torchBtn.classList.contains('active');
+                
+                torchTrack.applyConstraints({
+                    advanced: [{ torch: !isActive }]
+                }).then(function() {
+                    if (!isActive) {
+                        torchBtn.classList.add('active');
+                        torchBtn.innerHTML = '<span>🔦</span><span>关闭闪光灯</span>';
+                    } else {
+                        torchBtn.classList.remove('active');
+                        torchBtn.innerHTML = '<span>🔦</span><span>开启闪光灯</span>';
+                    }
+                }).catch(function(err) {
+                    console.error('[Torch] Error:', err);
+                    showToast('闪光灯开启失败');
+                });
+            } catch (e) {
+                showToast('闪光灯控制不可用');
+            }
+        }
         
         function closeModal() {
             // 停止语音识别
