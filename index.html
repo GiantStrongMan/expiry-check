@@ -8,7 +8,7 @@
     <meta name="format-detection" content="telephone=no">
     <title>过期了么 - 物品有效期管理</title>
     
-    <!-- 版本: 2026-04-14-v11 -->
+    <!-- 版本: 2026-04-14-v12 -->
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
@@ -2083,9 +2083,50 @@
             });
         }
         
+        // 确保用户 profiles 记录存在（解决新用户注册后 profiles 不存在导致外键约束失败的问题）
+        async function ensureProfileExists(userId) {
+            try {
+                // 先检查 profiles 是否存在
+                var profileResult = await supabaseClient
+                    .from('profiles')
+                    .select('id')
+                    .eq('id', userId)
+                    .single();
+                
+                if (!profileResult.error && profileResult.data) {
+                    console.log('[Profile] profiles 记录已存在');
+                    return true;
+                }
+                
+                // 如果不存在，创建新记录
+                console.log('[Profile] 正在创建 profiles 记录...');
+                var insertResult = await supabaseClient
+                    .from('profiles')
+                    .insert({
+                        id: userId,
+                        email: currentUser ? currentUser.email : ''
+                    });
+                
+                if (insertResult.error) {
+                    console.error('[Profile] 创建 profiles 记录失败:', insertResult.error);
+                    return false;
+                }
+                
+                console.log('[Profile] profiles 记录创建成功');
+                return true;
+            } catch (e) {
+                console.error('[Profile] ensureProfileExists 出错:', e);
+                return false;
+            }
+        }
+        
         // 用户登录后初始化
         async function onUserLoggedIn() {
             updateAuthUI();
+            // 确保 profiles 记录存在
+            if (currentUser) {
+                await ensureProfileExists(currentUser.id);
+            }
             await loadHouses();
             await syncLocalToCloud();
             renderHouseSelector();
@@ -3062,6 +3103,11 @@
                         throw signUpResult.error;
                     }
                     
+                    // 注册成功后，如果用户已登录（无需邮箱验证的情况），确保 profiles 记录存在
+                    if (signUpResult.data && signUpResult.data.user) {
+                        await ensureProfileExists(signUpResult.data.user.id);
+                    }
+                    
                     showToast('注册成功！请查收验证邮件');
                     closeAuthModal();
                 } else {
@@ -3072,6 +3118,11 @@
                     
                     if (signInResult.error) {
                         throw signInResult.error;
+                    }
+                    
+                    // 登录成功后确保 profiles 记录存在
+                    if (signInResult.data && signInResult.data.user) {
+                        await ensureProfileExists(signInResult.data.user.id);
                     }
                     
                     showToast('登录成功');
