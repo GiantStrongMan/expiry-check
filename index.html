@@ -8,7 +8,7 @@
     <meta name="format-detection" content="telephone=no">
     <title>过期了么 - 物品有效期管理</title>
     
-    <!-- 版本: 2026-04-14-v13 -->
+    <!-- 版本: 2026-04-14-v14-扫码优化 -->
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- html5-qrcode 条码扫描库 -->
@@ -5085,12 +5085,26 @@
                 return;
             }
             
+            // 检查摄像头权限
+            Html5Qrcode.getCameras().then(function(cameras) {
+                if (cameras && cameras.length) {
+                    console.log('[Scanner] 可用摄像头:', cameras.length, cameras);
+                } else {
+                    console.log('[Scanner] 未检测到摄像头');
+                }
+            }).catch(function(err) {
+                console.error('[Scanner] 获取摄像头列表失败:', err);
+            });
+            
             html5QrCode = new Html5Qrcode("qr-reader");
             
+            // 优化的扫码配置 - 支持更多条码格式和更好兼容性
             var config = {
-                fps: 10,
-                qrbox: { width: 250, height: 150 },
+                fps: 15,  // 提高帧率以加快识别
+                qrbox: { width: 280, height: 200 },  // 增大扫描区域，特别是高度
                 aspectRatio: 1.0,
+                disableFlip: false,
+                rememberLastUsedCamera: true,
                 formatsToSupport: [
                     Html5QrcodeSupportedFormats.EAN_13,
                     Html5QrcodeSupportedFormats.EAN_8,
@@ -5098,20 +5112,47 @@
                     Html5QrcodeSupportedFormats.UPC_E,
                     Html5QrcodeSupportedFormats.CODE_128,
                     Html5QrcodeSupportedFormats.CODE_39,
-                    Html5QrcodeSupportedFormats.ITF
-                ]
+                    Html5QrcodeSupportedFormats.CODE_93,
+                    Html5QrcodeSupportedFormats.ITF,
+                    Html5QrcodeSupportedFormats.CODABAR,
+                    Html5QrcodeSupportedFormats.QR_CODE,
+                    Html5QrcodeSupportedFormats.RSS_14,
+                    Html5QrcodeSupportedFormats.RSS_EXPANDED
+                ],
+                // 视频约束 - 优化移动端摄像头参数
+                videoConstraints: {
+                    width: { min: 640, ideal: 1280, max: 1920 },
+                    height: { min: 480, ideal: 720, max: 1080 },
+                    facingMode: "environment",
+                    // 优先后置摄像头
+                    deviceId: { exact: undefined },
+                    frameRate: { ideal: 30, min: 15 }
+                },
+                // 启用实验性功能 - 使用原生 BarcodeDetector API (iOS Safari支持)
+                experimentalFeatures: {
+                    useBarCodeDetectorIfSupported: true
+                }
             };
+            
+            console.log('[Scanner] 开始初始化摄像头...');
             
             html5QrCode.start(
                 { facingMode: "environment" },
                 config,
-                onScanSuccess,
+                function(decodedText, decodedResult) {
+                    // 扫码成功回调
+                    console.log('[Scanner] 识别成功:', decodedText, decodedResult);
+                    onScanSuccess(decodedText);
+                },
                 function(error) {
-                    // 忽略扫描错误，持续扫描
+                    // 扫描错误回调 - 仅记录调试信息，不弹窗
+                    if (error !== "No MultiFormat Readers were able to detect the code.") {
+                        console.log('[Scanner] 扫描中...', error);
+                    }
                 }
             ).then(function() {
                 isScanning = true;
-                console.log('[Scanner] Started successfully');
+                console.log('[Scanner] 摄像头已启动');
                 
                 // 保存video track用于闪光灯控制
                 var videoElement = document.querySelector('#qr-reader video');
@@ -5119,18 +5160,31 @@
                     var tracks = videoElement.srcObject.getVideoTracks();
                     if (tracks.length > 0) {
                         torchTrack = tracks[0];
+                        var settings = tracks[0].getSettings();
+                        console.log('[Scanner] 视频设置:', settings);
                     }
                 }
             }).catch(function(err) {
-                console.error('[Scanner] Start error:', err);
-                showToast('无法访问摄像头，请检查权限设置');
+                console.error('[Scanner] 摄像头启动失败:', err);
+                
+                // 针对不同错误类型给出友好提示
+                var errorMsg = '无法访问摄像头，请检查权限设置';
+                if (err.toString().indexOf('Permission') !== -1) {
+                    errorMsg = '摄像头权限被拒绝，请在浏览器设置中允许访问摄像头';
+                } else if (err.toString().indexOf('NotFound') !== -1) {
+                    errorMsg = '未找到可用摄像头，请确认设备有可用的相机';
+                } else if (err.toString().indexOf('NotAllowed') !== -1) {
+                    errorMsg = '摄像头访问被阻止，请点击浏览器地址栏的🔒图标允许摄像头访问';
+                }
+                
+                showToast(errorMsg);
                 closeScanner();
             });
         }
         
         // 扫码成功回调
         function onScanSuccess(decodedText) {
-            console.log('[Scanner] Scanned:', decodedText);
+            console.log('[Scanner] 扫码成功:', decodedText);
             
             // 震动反馈（如果支持）
             if (navigator.vibrate) {
