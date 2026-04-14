@@ -8,7 +8,7 @@
     <meta name="format-detection" content="telephone=no">
     <title>过期了么 - 物品有效期管理</title>
     
-    <!-- 版本: 2026-04-14-v9 -->
+    <!-- 版本: 2026-04-14-v10 -->
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
@@ -2398,12 +2398,31 @@
                     saveInviteCodeToLocal(code, currentHouseId);
                 }
                 
-                // 保存到localStorage
+                // 获取当前房子名称用于显示
+                var currentHouseName = '家庭共享房子';
+                var currentHouse = houses.find(function(h) { return h.id === currentHouseId; });
+                if (currentHouse && currentHouse.name) {
+                    currentHouseName = currentHouse.name;
+                }
+                
+                // 保存到localStorage（包含房子名称，以便加入时使用）
                 localStorage.setItem('guoqiLeMe_currentInviteCode', JSON.stringify({
                     code: code,
                     houseId: currentHouseId,
+                    houseName: currentHouseName,
                     expiresAt: expiresAt.toISOString()
                 }));
+                
+                // 同时保存邀请码到 guoqiLeMe_inviteCodes（用于恢复之前的邀请码）
+                var allCodes = JSON.parse(localStorage.getItem('guoqiLeMe_inviteCodes') || '{}');
+                allCodes[code] = {
+                    houseId: currentHouseId,
+                    houseName: currentHouseName,
+                    expiresAt: expiresAt.toISOString()
+                };
+                localStorage.setItem('guoqiLeMe_inviteCodes', JSON.stringify(allCodes));
+                
+                console.log('[Invite] 已保存邀请码到 localStorage:', code, '房子:', currentHouseName);
                 
                 // 显示邀请码 - 设置面板
                 var codeInput = document.getElementById('inviteCodeInput');
@@ -2458,13 +2477,22 @@
         
         // 保存邀请码到 localStorage（兼容方案）
         function saveInviteCodeToLocal(code, houseId) {
+            // 获取当前房子名称
+            var houseName = '家庭共享房子';
+            var currentHouse = houses.find(function(h) { return h.id === houseId; });
+            if (currentHouse && currentHouse.name) {
+                houseName = currentHouse.name;
+            }
+            
             var codes = JSON.parse(localStorage.getItem('guoqiLeMe_inviteCodes') || '{}');
             codes[code] = {
                 houseId: houseId,
+                houseName: houseName,
                 createdBy: currentUser.id,
                 expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
             };
             localStorage.setItem('guoqiLeMe_inviteCodes', JSON.stringify(codes));
+            console.log('[Invite] saveInviteCodeToLocal 保存邀请码:', code, '房子:', houseName);
         }
         
         // 复制邀请码
@@ -2495,6 +2523,9 @@
             var code = document.getElementById('joinHouseCode').value.trim().toUpperCase();
             var resultEl = document.getElementById('joinResult');
             
+            console.log('[Join] === 开始加入房子流程 ===');
+            console.log('[Join] 输入的邀请码:', code);
+            
             if (!code || code.length !== 6) {
                 resultEl.className = 'join-result error show';
                 resultEl.textContent = '请输入有效的6位邀请码';
@@ -2507,11 +2538,14 @@
                 return;
             }
             
+            console.log('[Join] 当前用户:', currentUser.id);
+            
             resultEl.className = 'join-result show';
             resultEl.textContent = '正在验证邀请码...';
             
             try {
-                // 先尝试从数据库查询
+                // 步骤1: 从数据库查询 invite_codes
+                console.log('[Join] 步骤1: 查询 invite_codes 表...');
                 var inviteResult = await supabaseClient
                     .from('invite_codes')
                     .select('*')
@@ -2519,57 +2553,65 @@
                     .gt('expires_at', new Date().toISOString())
                     .single();
                 
+                console.log('[Join] invite_codes 查询结果:', inviteResult);
+                
                 var houseId = null;
+                var houseName = '家庭共享房子';
                 
                 if (inviteResult.data) {
                     houseId = inviteResult.data.house_id;
+                    houseName = inviteResult.data.house_name || '家庭共享房子';
+                    console.log('[Join] 从数据库获取到 house_id:', houseId);
                 } else {
-                    // 尝试从 localStorage 获取
+                    // invite_codes 查询失败或无数据，尝试从 localStorage 获取
+                    console.log('[Join] 数据库查询无数据或失败，尝试从 localStorage 获取...');
+                    console.log('[Join] inviteResult.error:', inviteResult.error);
                     var codes = JSON.parse(localStorage.getItem('guoqiLeMe_inviteCodes') || '{}');
                     if (codes[code]) {
                         var codeInfo = codes[code];
                         if (new Date(codeInfo.expiresAt) > new Date()) {
                             houseId = codeInfo.houseId;
+                            houseName = codeInfo.houseName || '家庭共享房子';
+                            console.log('[Join] 从 localStorage 获取到 house_id:', houseId);
+                            console.log('[Join] 从 localStorage 获取到 houseName:', houseName);
                         } else {
+                            console.log('[Join] localStorage 中的邀请码已过期');
                             delete codes[code];
                             localStorage.setItem('guoqiLeMe_inviteCodes', JSON.stringify(codes));
                         }
+                    } else {
+                        console.log('[Join] localStorage 中也没有邀请码记录');
                     }
                 }
                 
                 if (!houseId) {
+                    console.log('[Join] houseId 为空，邀请码无效');
+                    if (inviteResult.error) {
+                        resultEl.textContent = '无法验证邀请码（数据库查询失败），请稍后重试';
+                    } else {
+                        resultEl.textContent = '邀请码无效或已过期';
+                    }
                     resultEl.className = 'join-result error show';
-                    resultEl.textContent = '邀请码无效或已过期';
                     return;
                 }
                 
-                // 检查 houses 表中是否存在这个 house，如果不存在则先创建
-                // 注意：如果 RLS 阻止插入，我们使用 upsert 方式尝试
+                console.log('[Join] 步骤2: 检查/创建 houses 表记录...');
+                console.log('[Join] houseId:', houseId);
+                
+                // 检查 houses 表中是否存在这个 house
                 var houseCheck = await supabaseClient
                     .from('houses')
                     .select('*')
                     .eq('id', houseId)
                     .maybeSingle();
                 
+                console.log('[Join] houses 表查询结果:', houseCheck);
+                
                 if (houseCheck.error) {
-                    // RLS 策略阻止了查询，可能是正常的，跳过检查
-                    console.log('[Join] House check blocked by RLS:', houseCheck.error);
+                    console.log('[Join] houses 表查询被 RLS 阻止 (这是正常的):', houseCheck.error);
                 } else if (!houseCheck.data) {
                     // house 不存在，需要创建
-                    console.log('[Join] House does not exist, creating...');
-                    
-                    // 获取房子名称（如果有）
-                    var houseName = '家庭共享房子';
-                    try {
-                        var inviteInfo = await supabaseClient
-                            .from('invite_codes')
-                            .select('house_name')
-                            .eq('code', code)
-                            .maybeSingle();
-                        if (inviteInfo.data && inviteInfo.data.house_name) {
-                            houseName = inviteInfo.data.house_name;
-                        }
-                    } catch (e) {}
+                    console.log('[Join] houses 表中找不到该记录，需要创建...');
                     
                     // 尝试使用 upsert 方式插入（绕过 RLS）
                     var createHouseResult = await supabaseClient
@@ -2577,27 +2619,52 @@
                         .upsert({
                             id: houseId,
                             name: houseName,
-                            owner_id: inviteResult.data.created_by
+                            owner_id: inviteResult.data ? inviteResult.data.created_by : currentUser.id
                         }, { onConflict: 'id' });
                     
+                    console.log('[Join] upsert 结果:', createHouseResult);
+                    
                     if (createHouseResult.error) {
-                        console.log('[Join] Could not create house with upsert:', createHouseResult.error);
+                        console.log('[Join] upsert 失败:', createHouseResult.error);
                         // 尝试使用 RPC 函数来创建（如果有的话）
                         try {
-                            await supabaseClient.rpc('create_house_if_not_exists', {
+                            console.log('[Join] 尝试使用 RPC 创建...');
+                            var rpcResult = await supabaseClient.rpc('create_house_if_not_exists', {
                                 p_id: houseId,
                                 p_name: houseName,
-                                p_owner: inviteResult.data.created_by
+                                p_owner: inviteResult.data ? inviteResult.data.created_by : currentUser.id
                             });
-                            console.log('[Join] House created via RPC');
+                            console.log('[Join] RPC 结果:', rpcResult);
                         } catch (rpcErr) {
-                            console.log('[Join] RPC also failed:', rpcErr);
-                            // 如果都失败了，但 invite_codes 表有记录，说明房子逻辑上存在
-                            // 我们继续尝试，但需要在后面处理外键问题
+                            console.log('[Join] RPC 也失败:', rpcErr);
                         }
+                    } else {
+                        console.log('[Join] upsert 成功创建/更新 house 记录');
                     }
+                } else {
+                    console.log('[Join] houses 表中已有该记录:', houseCheck.data);
                 }
                 
+                // 再次检查 houses 表，确认记录存在
+                console.log('[Join] 步骤3: 再次验证 houses 记录存在性...');
+                var houseVerify = await supabaseClient
+                    .from('houses')
+                    .select('id')
+                    .eq('id', houseId)
+                    .maybeSingle();
+                
+                console.log('[Join] houses 验证结果:', houseVerify);
+                
+                if (houseVerify.error) {
+                    console.log('[Join] 警告: 无法验证 houses 记录存在，可能被 RLS 阻止');
+                } else if (!houseVerify.data) {
+                    console.log('[Join] 错误: houses 记录确实不存在！');
+                    resultEl.className = 'join-result error show';
+                    resultEl.textContent = '房子不存在，请联系房主检查';
+                    return;
+                }
+                
+                console.log('[Join] 步骤4: 检查是否已经是成员...');
                 // 检查是否已经是成员
                 var memberCheck = await supabaseClient
                     .from('house_members')
@@ -2606,15 +2673,16 @@
                     .eq('user_id', currentUser.id)
                     .single();
                 
+                console.log('[Join] house_members 查询结果:', memberCheck);
+                
                 if (!memberCheck.error && memberCheck.data) {
+                    console.log('[Join] 用户已是成员');
                     resultEl.className = 'join-result error show';
                     resultEl.textContent = '您已经是这个房子的成员';
                     return;
                 }
                 
-                // 移除 houses 表验证，直接通过 invite_codes 表确认 house_id 有效
-                // (houses 表有 RLS 限制，会阻止非成员查询)
-                
+                console.log('[Join] 步骤5: 插入 house_members 记录...');
                 // 加入 house_members 表
                 var joinResult = await supabaseClient
                     .from('house_members')
@@ -2624,9 +2692,14 @@
                         role: 'member'
                     });
                 
+                console.log('[Join] house_members 插入结果:', joinResult);
+                
                 if (joinResult.error) {
+                    console.error('[Join] house_members 插入失败:', joinResult.error);
                     throw joinResult.error;
                 }
+                
+                console.log('[Join] === 加入房子成功 ===');
                 
                 // 从 invite_codes 表获取房子名称用于显示
                 var houseName = '新房子';
@@ -2687,17 +2760,40 @@
                 showToast('已成功加入房子');
                 
             } catch (err) {
-                console.error('[Join] Error:', err);
+                console.error('[Join] 捕获到错误:', err);
+                console.error('[Join] 错误详情:', {
+                    code: err.code,
+                    message: err.message,
+                    details: err.details,
+                    hint: err.hint,
+                    status: err.status,
+                    statusText: err.statusText
+                });
+                
                 resultEl.className = 'join-result error show';
                 // 根据错误类型显示更友好的消息
                 var errorMsg = '加入失败，请重试';
+                
                 if (err.code === '23503') {
-                    errorMsg = '房子不存在或邀请码已失效';
+                    // 外键约束违反 - houses 表中缺少记录
+                    errorMsg = '房子不存在（外键约束失败），请确认邀请码有效';
+                    console.error('[Join] 诊断: houses 表中缺少 house_id=' + houseId + ' 的记录');
+                    console.error('[Join] 解决方案: 需要在 houses 表中创建对应记录');
                 } else if (err.code === '23505') {
                     errorMsg = '您已经是这个房子的成员';
+                } else if (err.code === 'PGRST204') {
+                    // PostgREST 错误 - RLS 阻止读取
+                    errorMsg = '无法验证邀请码，请稍后重试（RLS限制）';
+                    console.error('[Join] 诊断: RLS 策略阻止了 invite_codes 表的读取');
                 } else if (err.status === 406 || err.statusText === 'Not Acceptable') {
                     errorMsg = '无法验证邀请码，请稍后重试';
+                } else if (err.status === 401 || err.statusText === 'Unauthorized') {
+                    errorMsg = '未授权，请重新登录';
+                } else if (err.status === 403 || err.statusText === 'Forbidden') {
+                    errorMsg = '权限不足，无法加入房子';
                 }
+                
+                console.error('[Join] 最终错误信息:', errorMsg);
                 resultEl.textContent = errorMsg;
             }
         }
