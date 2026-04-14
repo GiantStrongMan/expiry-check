@@ -2042,6 +2042,7 @@
                 } else {
                     console.log('[Auth] No session');
                     updateAuthUI();
+                    showNotLoggedInUI();
                 }
             } catch (err) {
                 console.error('[Auth] Error:', err);
@@ -2059,6 +2060,9 @@
                     houses = [];
                     updateAuthUI();
                     renderHouseSelector();
+                    // 退出登录后清空物品并显示未登录提示
+                    items = [];
+                    showNotLoggedInUI();
                 }
             });
         }
@@ -2069,6 +2073,10 @@
             await loadHouses();
             await syncLocalToCloud();
             renderHouseSelector();
+            // 登录后加载并渲染物品
+            loadItems();
+            renderItems();
+            checkUrgentItems();
         }
         
         // 更新认证 UI
@@ -3682,10 +3690,9 @@
         
         document.addEventListener('DOMContentLoaded', function() {
             console.log('[App] Initializing...');
-            loadItems();
             setTodayDate();
-            renderItems();
-            checkUrgentItems();
+            // 注意：loadItems() 和 renderItems() 只在用户登录后由 onUserLoggedIn() 调用
+            showNotLoggedInUI();
             // 初始化语音支持检测
             checkVoiceSupport();
             // 初始化 Supabase 认证
@@ -3693,6 +3700,13 @@
             checkAuthState();
             console.log('[App] Initialization complete');
         });
+        
+        // 显示未登录UI
+        function showNotLoggedInUI() {
+            var listEl = document.getElementById('itemList');
+            listEl.innerHTML = '<div class="empty-state"><div class="icon">🔑</div><p>请登录查看您的物品</p><p style="font-size:0.85rem;margin-top:6px;color:#9ca3af;">登录后可同步和管理您的物品数据</p></div>';
+            updateStats();
+        }
         
         function setTodayDate() {
             var today = new Date();
