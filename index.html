@@ -8,7 +8,7 @@
     <meta name="format-detection" content="telephone=no">
     <title>过期了么 - 物品有效期管理</title>
     
-    <!-- 版本: 2026-04-13-v7 -->
+    <!-- 版本: 2026-04-14-v8 -->
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
@@ -2557,18 +2557,8 @@
                     return;
                 }
                 
-                // 获取房子信息
-                var houseResult = await supabaseClient
-                    .from('houses')
-                    .select('*')
-                    .eq('id', houseId)
-                    .single();
-                
-                if (houseResult.error || !houseResult.data) {
-                    resultEl.className = 'join-result error show';
-                    resultEl.textContent = '房子不存在';
-                    return;
-                }
+                // 移除 houses 表验证，直接通过 invite_codes 表确认 house_id 有效
+                // (houses 表有 RLS 限制，会阻止非成员查询)
                 
                 // 加入 house_members 表
                 var joinResult = await supabaseClient
@@ -2583,8 +2573,42 @@
                     throw joinResult.error;
                 }
                 
+                // 从 invite_codes 表获取房子名称用于显示
+                var houseName = '新房子';
+                try {
+                    var houseInfo = await supabaseClient
+                        .from('invite_codes')
+                        .select('house_id')
+                        .eq('code', code)
+                        .single();
+                    
+                    if (!houseInfo.error && houseInfo.data) {
+                        // 尝试获取 house 名称（可能因 RLS 失败）
+                        var houseResult = await supabaseClient
+                            .from('houses')
+                            .select('name')
+                            .eq('id', houseId)
+                            .maybeSingle();
+                        
+                        if (!houseResult.error && houseResult.data) {
+                            houseName = houseResult.data.name;
+                        }
+                    }
+                } catch (e) {
+                    // 获取名称失败不影响加入流程
+                    console.log('[Join] Could not fetch house name:', e);
+                }
+                
+                // 创建本地 house 对象用于同步
+                var localHouse = {
+                    id: houseId,
+                    name: houseName,
+                    owner_id: currentUser.id,
+                    created_at: new Date().toISOString()
+                };
+                
                 // 将房子添加到本地列表
-                houses.push(houseResult.data);
+                houses.push(localHouse);
                 currentHouseId = houseId;
                 
                 // 保存到本地
@@ -2602,7 +2626,7 @@
                 await syncFromCloud();
                 
                 resultEl.className = 'join-result success show';
-                resultEl.textContent = '成功加入「' + houseResult.data.name + '」！';
+                resultEl.textContent = '成功加入「' + houseName + '」！';
                 document.getElementById('joinHouseCode').value = '';
                 
                 showToast('已成功加入房子');
