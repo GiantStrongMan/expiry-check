@@ -1646,9 +1646,16 @@
             <h1>过期了么</h1>
         </div>
         <div class="auth-area" id="authArea">
-            <button class="auth-btn" onclick="openAuthModal()">
+            <button class="auth-btn" id="loginBtn" onclick="openAuthModal()">
                 <span>🔑</span><span>登录</span>
             </button>
+            <div class="auth-user" id="authUser" style="display:none;">
+                <div class="auth-info-group">
+                    <span>👤</span>
+                    <span class="email" id="authUserEmail" title=""></span>
+                    <button class="logout-btn" onclick="handleLogout()">退出</button>
+                </div>
+            </div>
             <div class="house-selector" id="houseSelector">
                 <select id="houseSelect" onchange="onHouseChange()">
                     <option value="">加载中...</option>
@@ -2093,25 +2100,28 @@
             var authArea = document.getElementById('authArea');
             var houseSelector = document.getElementById('houseSelector');
             var settingsBtn = document.getElementById('settingsBtn');
+            var loginBtn = document.getElementById('loginBtn');
+            var authUserEl = document.getElementById('authUser');
             if (!authArea) return;
             
             if (currentUser) {
-                authArea.innerHTML = '<div class="auth-user">' +
-                    '<div class="auth-info-group">' +
-                    '<span>👤</span>' +
-                    '<span class="email" title="' + escapeHtml(currentUser.email) + '">' + escapeHtml(currentUser.email) + '</span>' +
-                    '<button class="logout-btn" onclick="handleLogout()">退出</button>' +
-                    '</div>' +
-                    '</div>';
+                // 只更新登录按钮区域，不替换整个innerHTML（避免移除houseSelector）
+                if (loginBtn) loginBtn.style.display = 'none';
+                if (authUserEl) {
+                    authUserEl.style.display = 'flex';
+                    var emailSpan = document.getElementById('authUserEmail');
+                    if (emailSpan) emailSpan.textContent = currentUser.email;
+                }
                 // 显示房子选择器
                 if (houseSelector) houseSelector.classList.add('show');
-                settingsBtn.style.display = 'flex';
+                if (settingsBtn) settingsBtn.style.display = 'flex';
             } else {
-                authArea.innerHTML = '<button class="auth-btn" onclick="openAuthModal()">' +
-                    '<span>🔑</span><span>登录</span></button>';
+                // 显示登录按钮
+                if (loginBtn) loginBtn.style.display = 'flex';
+                if (authUserEl) authUserEl.style.display = 'none';
                 // 隐藏房子选择器
                 if (houseSelector) houseSelector.classList.remove('show');
-                settingsBtn.style.display = 'none';
+                if (settingsBtn) settingsBtn.style.display = 'none';
             }
         }
         
@@ -2868,15 +2878,18 @@
         function renderHouseSelector() {
             var selector = document.getElementById('houseSelector');
             var select = document.getElementById('houseSelect');
+            if (!selector) return;
             
             // 如果用户有多个房子，显示选择器
             if (currentUser && houses.length > 1) {
                 selector.classList.add('show');
-                select.innerHTML = houses.map(function(house) {
-                    return '<option value="' + house.id + '"' + 
-                           (house.id === currentHouseId ? ' selected' : '') + '>' + 
-                           escapeHtml(house.name) + '</option>';
-                }).join('');
+                if (select) {
+                    select.innerHTML = houses.map(function(house) {
+                        return '<option value="' + house.id + '"' + 
+                               (house.id === currentHouseId ? ' selected' : '') + '>' + 
+                               escapeHtml(house.name) + '</option>';
+                    }).join('');
+                }
             } else if (currentUser && houses.length === 1) {
                 // 只有一个房子时隐藏选择器，但仍显示在设置面板中
                 selector.classList.remove('show');
