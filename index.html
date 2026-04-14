@@ -8,7 +8,7 @@
     <meta name="format-detection" content="telephone=no">
     <title>过期了么 - 物品有效期管理</title>
     
-    <!-- 版本: 2026-04-14-v14-扫码优化 -->
+    <!-- 版本: 2026-04-14-v15-手机登录超时修复 -->
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- html5-qrcode 条码扫描库 -->
@@ -2227,17 +2227,39 @@
             return false;
         }
         
-        // 检查认证状态
+        // 检查认证状态 - 带超时处理
+        var authCheckAttempts = 0;
+        var authCheckMaxAttempts = 20; // 最多重试20次（约10秒）
         async function checkAuthState() {
+            authCheckAttempts++;
+            
             if (!supabaseClient) {
                 if (!initSupabase()) {
+                    if (authCheckAttempts >= authCheckMaxAttempts) {
+                        console.error('[Auth] SDK加载超时，显示未登录状态');
+                        showNotLoggedInUI();
+                        updateAuthUI();
+                        return;
+                    }
                     setTimeout(checkAuthState, 500);
                     return;
                 }
             }
             
+            // SDK已加载，重置计数器
+            authCheckAttempts = 0;
+            
             try {
-                var session = await supabaseClient.auth.getSession();
+                // 添加超时处理
+                var sessionPromise = supabaseClient.auth.getSession();
+                var timeoutPromise = new Promise(function(resolve, reject) {
+                    setTimeout(function() {
+                        reject(new Error('Session request timeout'));
+                    }, 10000); // 10秒超时
+                });
+                
+                var session = await Promise.race([sessionPromise, timeoutPromise]);
+                
                 if (session.data.session) {
                     currentUser = session.data.session.user;
                     console.log('[Auth] User logged in:', currentUser.email);
@@ -2249,6 +2271,9 @@
                 }
             } catch (err) {
                 console.error('[Auth] Error:', err);
+                // 网络错误时显示未登录状态，避免一直显示"登录中"
+                updateAuthUI();
+                showNotLoggedInUI();
             }
             
             // 监听认证状态变化
