@@ -17,22 +17,6 @@
         window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnYW9leG11b2ljenNoZnpia29iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTA1OTgsImV4cCI6MjA5MTY2NjU5OH0.xza4R8NayZ3y9nHi95pe7m3YjDFBu7wxvwzG6dkA8a4';
     </script>
     <script>
-        // 字体大小设置
-        window.FONT_SIZE_KEY = 'guoqiLeMe_fontSize';
-        window.getFontSize = function() {
-            var size = localStorage.getItem(window.FONT_SIZE_KEY);
-            return size || 'medium';
-        };
-        window.setFontSize = function(size) {
-            localStorage.setItem(window.FONT_SIZE_KEY, size);
-            document.body.dataset.fontSize = size;
-        };
-        window.applyFontSize = function() {
-            var size = window.getFontSize();
-            document.body.dataset.fontSize = size;
-        };
-    </script>
-    <script>
         // 延迟加载 SheetJS，避免阻塞渲染
         window.onload = function() {
             var script = document.createElement('script');
@@ -75,21 +59,6 @@
             --header-title-size: 1.2rem;
             --icon-size: 1.1rem;
             --stat-num-size: 1.4rem;
-        }
-        
-        /* 字体大小档位 */
-        body[data-font-size="small"] {
-            --base-font-size: 16px;
-            --header-title-size: 1.1rem;
-            --icon-size: 1rem;
-            --stat-num-size: 1.3rem;
-        }
-        
-        body[data-font-size="large"] {
-            --base-font-size: 20px;
-            --header-title-size: 1.4rem;
-            --icon-size: 1.3rem;
-            --stat-num-size: 1.6rem;
         }
         
         body {
@@ -135,27 +104,9 @@
             font-weight: 700;
         }
         
-        .font-size-btn {
-            position: absolute;
-            right: 60px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 36px;
-            height: 36px;
-            border: none;
-            border-radius: 8px;
-            background: rgba(255,255,255,0.2);
-            color: white;
-            font-size: 1.2rem;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
         .settings-btn {
             position: absolute;
-            left: 12px;
+            right: 12px;
             top: 50%;
             transform: translateY(-50%);
             width: 36px;
@@ -385,39 +336,6 @@
         .house-selector select option {
             background: var(--primary);
             color: white;
-        }
-        
-        .font-size-menu {
-            display: none;
-            position: absolute;
-            right: 12px;
-            top: 60px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            overflow: hidden;
-            z-index: 200;
-        }
-        
-        .font-size-menu.show { display: block; }
-        
-        .font-size-option {
-            padding: 12px 20px;
-            color: var(--text);
-            cursor: pointer;
-            font-size: 0.95rem;
-            font-weight: 500;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .font-size-option:last-child { border-bottom: none; }
-        
-        .font-size-option:hover { background: var(--bg); }
-        
-        .font-size-option.active { 
-            background: var(--safe-bg); 
-            color: var(--primary-dark);
-            font-weight: 600;
         }
         
         .container {
@@ -1826,12 +1744,6 @@
         <button class="settings-btn" id="settingsBtn" onclick="openSettingsModal()" title="设置" style="display:none;">
             <span>⚙️</span>
         </button>
-        <button class="font-size-btn" id="fontSizeBtn" onclick="toggleFontSizeMenu()" title="字体大小">🔤</button>
-        <div class="font-size-menu" id="fontSizeMenu">
-            <div class="font-size-option" onclick="setFontSizeOption('small')">小字</div>
-            <div class="font-size-option active" onclick="setFontSizeOption('medium')">中字</div>
-            <div class="font-size-option" onclick="setFontSizeOption('large')">大字</div>
-        </div>
     </div>
     
     <!-- 登录/注册模态框 -->
@@ -3944,9 +3856,6 @@
         
         document.addEventListener('DOMContentLoaded', function() {
             console.log('[App] Initializing...');
-            // 初始化字体大小设置
-            applyFontSize();
-            updateFontSizeMenu();
             loadItems();
             setTodayDate();
             renderItems();
@@ -3956,44 +3865,8 @@
             // 初始化 Supabase 认证
             initSupabase();
             checkAuthState();
-            // 点击其他地方关闭字体菜单
-            document.addEventListener('click', function(e) {
-                var menu = document.getElementById('fontSizeMenu');
-                var btn = document.getElementById('fontSizeBtn');
-                if (menu && btn && !menu.contains(e.target) && !btn.contains(e.target)) {
-                    menu.classList.remove('show');
-                }
-            });
             console.log('[App] Initialization complete');
         });
-        
-        // 切换字体菜单显示
-        function toggleFontSizeMenu() {
-            var menu = document.getElementById('fontSizeMenu');
-            menu.classList.toggle('show');
-        }
-        
-        // 设置字体大小
-        function setFontSizeOption(size) {
-            setFontSize(size);
-            updateFontSizeMenu();
-            document.getElementById('fontSizeMenu').classList.remove('show');
-            showToast('字体已调整为' + (size === 'small' ? '小' : size === 'medium' ? '中' : '大') + '小');
-        }
-        
-        // 更新字体菜单的选中状态
-        function updateFontSizeMenu() {
-            var currentSize = window.getFontSize();
-            var options = document.querySelectorAll('.font-size-option');
-            for (var i = 0; i < options.length; i++) {
-                var size = options[i].getAttribute('onclick').match(/'(\w+)'/)[1];
-                if (size === currentSize) {
-                    options[i].classList.add('active');
-                } else {
-                    options[i].classList.remove('active');
-                }
-            }
-        }
         
         function setTodayDate() {
             var today = new Date();
