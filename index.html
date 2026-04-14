@@ -1708,6 +1708,101 @@
             border-color: var(--primary);
         }
         
+        /* 主页邀请码区域 - 固定显示 */
+        .main-invite-section {
+            display: none;
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 12px 14px;
+            margin-bottom: 12px;
+            border: 2px solid var(--primary);
+            box-shadow: 0 2px 12px rgba(34, 197, 94, 0.15);
+        }
+        
+        .main-invite-section.show {
+            display: block;
+        }
+        
+        .main-invite-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .main-invite-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .main-invite-title .icon {
+            font-size: 1rem;
+        }
+        
+        .main-invite-hint {
+            font-size: 0.7rem;
+            color: var(--text-lighter);
+        }
+        
+        .main-invite-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .main-invite-code {
+            flex: 1;
+            padding: 10px 14px;
+            background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+            border: 2px dashed var(--primary);
+            border-radius: 10px;
+            font-size: 1.3rem;
+            font-weight: 800;
+            letter-spacing: 4px;
+            color: var(--primary-dark);
+            text-align: center;
+            font-family: "SF Mono", "Menlo", "Monaco", monospace;
+        }
+        
+        .main-copy-btn {
+            padding: 10px 16px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        
+        .main-copy-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .main-copy-btn.copied {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+        
+        .main-invite-expire {
+            margin-top: 6px;
+            font-size: 0.7rem;
+            color: var(--text-lighter);
+            text-align: center;
+        }
+        
+        .main-invite-expire .days-left {
+            color: var(--warning);
+            font-weight: 600;
+        }
+        
         /* 隐藏未登录时的邀请/加入区块 */
         .settings-section.hidden { display: none; }
     </style>
@@ -1724,7 +1819,9 @@
             </select>
         </div>
         <div class="auth-area" id="authArea">
-            <!-- 动态渲染 -->
+            <button class="auth-btn" onclick="openAuthModal()">
+                <span>🔑</span><span>登录</span>
+            </button>
         </div>
         <button class="settings-btn" id="settingsBtn" onclick="openSettingsModal()" title="设置" style="display:none;">
             <span>⚙️</span>
@@ -1783,6 +1880,27 @@
             <div class="stat-item danger-fresh" onclick="filterByStatus('danger-fresh')">
                 <div class="num" id="dangerFreshCount">0</div>
                 <div class="label"><span class="stat-dot"></span>生鲜⚠️</div>
+            </div>
+        </div>
+        
+        <!-- 主页邀请码区域 - 固定显示 -->
+        <div class="main-invite-section" id="mainInviteSection">
+            <div class="main-invite-header">
+                <div class="main-invite-title">
+                    <span class="icon">🎫</span>
+                    <span>邀请家人加入</span>
+                </div>
+                <span class="main-invite-hint">分享此码给家人</span>
+            </div>
+            <div class="main-invite-row">
+                <div class="main-invite-code" id="mainInviteCode">------</div>
+                <button class="main-copy-btn" id="mainCopyBtn" onclick="copyMainInviteCode()">
+                    <span>📋</span>
+                    <span>复制</span>
+                </button>
+            </div>
+            <div class="main-invite-expire">
+                有效期剩 <span class="days-left" id="mainInviteDays">7</span> 天
             </div>
         </div>
         
@@ -2380,7 +2498,7 @@
                     saveInviteCodeToLocal(code, currentHouseId);
                 }
                 
-                // 显示邀请码
+                // 显示邀请码 - 设置面板
                 document.getElementById('inviteCodeInput').value = code;
                 document.getElementById('inviteCodeDisplay').style.display = 'block';
                 
@@ -2392,6 +2510,9 @@
                 
                 // 同时在邀请码区域显示一个醒目的提示
                 showInviteCodeHighlight(code);
+                
+                // 更新主页邀请码区域
+                updateMainInviteSection(code, expiresAt);
                 
                 showToast('邀请码: ' + code);
                 
@@ -2406,6 +2527,124 @@
                 showToast('生成邀请码失败');
                 btn.disabled = false;
                 btn.innerHTML = '<span>🎫</span><span>生成邀请码</span>';
+            }
+        }
+        
+        // 更新主页邀请码区域
+        function updateMainInviteSection(code, expiresAt) {
+            var section = document.getElementById('mainInviteSection');
+            var codeEl = document.getElementById('mainInviteCode');
+            var daysEl = document.getElementById('mainInviteDays');
+            
+            if (!section || !codeEl) return;
+            
+            // 显示区域
+            section.classList.add('show');
+            
+            // 更新邀请码
+            codeEl.textContent = code;
+            
+            // 更新剩余天数
+            if (expiresAt && daysEl) {
+                var now = new Date();
+                var daysLeft = Math.ceil((new Date(expiresAt) - now) / (1000 * 60 * 60 * 24));
+                daysLeft = Math.max(0, Math.min(7, daysLeft));
+                daysEl.textContent = daysLeft;
+            }
+            
+            // 添加动画效果
+            codeEl.style.animation = 'none';
+            codeEl.offsetHeight;
+            codeEl.style.animation = 'inviteCodePop 0.5s ease';
+            
+            // 保存到localStorage
+            localStorage.setItem('guoqiLeMe_currentInviteCode', JSON.stringify({
+                code: code,
+                houseId: currentHouseId,
+                expiresAt: expiresAt ? expiresAt.toISOString() : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+            }));
+        }
+        
+        // 复制主页邀请码
+        function copyMainInviteCode() {
+            var code = document.getElementById('mainInviteCode').textContent;
+            if (!code || code === '------') return;
+            
+            var btn = document.getElementById('mainCopyBtn');
+            
+            try {
+                navigator.clipboard.writeText(code).then(function() {
+                    // 显示复制成功状态
+                    btn.classList.add('copied');
+                    btn.innerHTML = '<span>✓</span><span>已复制</span>';
+                    showToast('邀请码 ' + code + ' 已复制');
+                    
+                    // 2秒后恢复
+                    setTimeout(function() {
+                        btn.classList.remove('copied');
+                        btn.innerHTML = '<span>📋</span><span>复制</span>';
+                    }, 2000);
+                }).catch(function() {
+                    // fallback
+                    var textarea = document.createElement('textarea');
+                    textarea.value = code;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    
+                    btn.classList.add('copied');
+                    btn.innerHTML = '<span>✓</span><span>已复制</span>';
+                    showToast('邀请码 ' + code + ' 已复制');
+                    
+                    setTimeout(function() {
+                        btn.classList.remove('copied');
+                        btn.innerHTML = '<span>📋</span><span>复制</span>';
+                    }, 2000);
+                });
+            } catch (e) {
+                showToast('复制失败');
+            }
+        }
+        
+        // 加载主页邀请码（从localStorage恢复）
+        function loadMainInviteCode() {
+            if (!currentHouseId) return;
+            
+            try {
+                var saved = localStorage.getItem('guoqiLeMe_currentInviteCode');
+                if (!saved) return;
+                
+                var data = JSON.parse(saved);
+                
+                // 检查是否属于当前房子
+                if (data.houseId !== currentHouseId) return;
+                
+                // 检查是否过期
+                if (data.expiresAt) {
+                    var now = new Date();
+                    var expiresAt = new Date(data.expiresAt);
+                    if (expiresAt <= now) {
+                        // 已过期，移除
+                        localStorage.removeItem('guoqiLeMe_currentInviteCode');
+                        return;
+                    }
+                    
+                    // 更新剩余天数
+                    var daysLeft = Math.ceil((expiresAt - now) / (1000 * 60 * 60 * 24));
+                    daysLeft = Math.max(0, Math.min(7, daysLeft));
+                    document.getElementById('mainInviteDays').textContent = daysLeft;
+                }
+                
+                // 显示邀请码
+                var section = document.getElementById('mainInviteSection');
+                var codeEl = document.getElementById('mainInviteCode');
+                if (section && codeEl) {
+                    section.classList.add('show');
+                    codeEl.textContent = data.code;
+                }
+            } catch (e) {
+                console.log('[Invite] Load from localStorage error:', e);
             }
         }
         
