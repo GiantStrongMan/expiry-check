@@ -322,6 +322,22 @@
         
         .auth-error.show { display: block; }
         
+        /* 调试信息区域 */
+        .debug-info {
+            max-height: 120px;
+            overflow-y: auto;
+            background: #f5f5f5;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            margin-top: 10px;
+            padding: 5px;
+            font-family: monospace;
+            font-size: 11px;
+            display: none;
+        }
+        
+        .debug-info.show { display: block; }
+        
         /* 房子切换器 */
         .house-selector {
             display: none;
@@ -1847,6 +1863,7 @@
                 <input type="password" id="authPassword" placeholder="请输入密码">
             </div>
             <div class="auth-error" id="authError"></div>
+            <div class="debug-info" id="debugInfo"></div>
             <div class="btn-group">
                 <button class="btn btn-cancel" onclick="closeAuthModal()">取消</button>
                 <button class="btn btn-submit" id="authSubmitBtn" onclick="handleAuthSubmit()">登录</button>
@@ -3282,46 +3299,206 @@
             document.getElementById('authError').classList.remove('show');
         }
         
-        // 处理登录/注册提交
+        // 调试日志工具 - 带详细时间戳
+        function debugLog(stage, message, data) {
+            var timestamp = new Date().toISOString();
+            var logPrefix = '[DEBUG ' + stage + '] ' + timestamp + ' - ' + message;
+            console.log(logPrefix, data || '');
+            
+            // 同时显示在页面上，方便调试
+            var debugEl = document.getElementById('debugInfo');
+            if (debugEl) {
+                // 有日志时显示调试区域
+                debugEl.classList.add('show');
+                
+                var entry = document.createElement('div');
+                entry.style.cssText = 'font-size:11px;padding:2px 5px;border-bottom:1px solid #eee;word-break:break-all;';
+                entry.innerHTML = '<span style="color:#666;">' + timestamp.split('T')[1].split('.')[0] + '</span> ' + 
+                    '<span style="color:#0066cc;font-weight:bold;">[' + stage + ']</span> ' + message;
+                if (data) {
+                    if (typeof data === 'object') {
+                        entry.innerHTML += ' <span style="color:#666;">' + JSON.stringify(data) + '</span>';
+                    } else {
+                        entry.innerHTML += ' <span style="color:#666;">' + data + '</span>';
+                    }
+                }
+                debugEl.insertBefore(entry, debugEl.firstChild);
+            }
+        }
+        
+        // 获取网络状态信息
+        function getNetworkInfo() {
+            var info = {
+                online: navigator.onLine,
+                effectiveType: 'unknown',
+                downlink: 'unknown',
+                rtt: 'unknown'
+            };
+            
+            if (navigator.connection) {
+                var conn = navigator.connection;
+                info.effectiveType = conn.effectiveType || 'unknown';
+                info.downlink = conn.downlink || 'unknown';
+                info.rtt = conn.rtt || 'unknown';
+                info.saveData = conn.saveData || false;
+            }
+            
+            return info;
+        }
+        
+        // 带重试机制的认证请求
+        async function authWithRetry(authFn, maxRetries, timeoutMs) {
+            var lastError = null;
+            var networkInfo = getNetworkInfo();
+            debugLog('NETWORK', '网络状态', networkInfo);
+            
+            for (var attempt = 1; attempt <= maxRetries; attempt++) {
+                var startTime = performance.now();
+                debugLog('AUTH', '尝试 #' + attempt + '/' + maxRetries + ' 开始', {
+                    email: document.getElementById('authEmail').value.trim(),
+                    timeout: timeoutMs + 'ms',
+                    network: networkInfo.effectiveType
+                });
+                
+                // 创建超时Promise
+                var timeoutPromise = new Promise(function(resolve, reject) {
+                    setTimeout(function() {
+                        reject(new Error('TIMEOUT_' + timeoutMs));
+                    }, timeoutMs);
+                });
+                
+                // 创建请求Promise
+                var requestPromise = new Promise(async function(resolve, reject) {
+                    try {
+                        debugLog('AUTH', '发送请求中...', null);
+                        var result = await authFn();
+                        var endTime = performance.now();
+                        debugLog('AUTH', '收到响应', {
+                            success: !result.error,
+                            duration: Math.round(endTime - startTime) + 'ms',
+                            hasUser: !!result.data?.user
+                        });
+                        resolve(result);
+                    } catch (err) {
+                        debugLog('AUTH', '请求异常', {
+                            name: err.name,
+                            message: err.message,
+                            code: err.code || 'N/A'
+                        });
+                        reject(err);
+                    }
+                });
+                
+                try {
+                    var result = await Promise.race([requestPromise, timeoutPromise]);
+                    
+                    // 记录响应时间
+                    var endTime = performance.now();
+                    debugLog('AUTH', '认证成功', {
+                        duration: Math.round(endTime - startTime) + 'ms',
+                        attempt: attempt
+                    });
+                    
+                    return result;
+                } catch (err) {
+                    lastError = err;
+                    var endTime = performance.now();
+                    var duration = Math.round(endTime - startTime);
+                    
+                    debugLog('AUTH', '尝试 #' + attempt + ' 失败', {
+                        error: err.message,
+                        duration: duration + 'ms',
+                        isTimeout: err.message && err.message.indexOf('TIMEOUT') === 0
+                    });
+                    
+                    // 如果是超时，继续重试
+                    if (err.message && err.message.indexOf('TIMEOUT') === 0) {
+                        debugLog('AUTH', '请求超时，准备重试...', null);
+                        
+                        // 短暂延迟后再重试
+                        if (attempt < maxRetries) {
+                            await new Promise(function(r) { setTimeout(r, 1000); });
+                        }
+                    } else {
+                        // 非超时错误，不再重试
+                        break;
+                    }
+                }
+            }
+            
+            throw lastError;
+        }
+        
+        // 处理登录/注册提交 - 带详细调试和重试
         async function handleAuthSubmit() {
             var email = document.getElementById('authEmail').value.trim();
             var password = document.getElementById('authPassword').value;
             var errorEl = document.getElementById('authError');
             var submitBtn = document.getElementById('authSubmitBtn');
             
+            // 清空调试信息
+            var debugEl = document.getElementById('debugInfo');
+            if (debugEl) debugEl.innerHTML = '';
+            
+            debugLog('START', '=== 开始认证流程 ===', {
+                mode: isRegisterMode ? '注册' : '登录',
+                email: email,
+                userAgent: navigator.userAgent.substring(0, 50) + '...'
+            });
+            
+            // 检查网络状态
+            var networkInfo = getNetworkInfo();
+            debugLog('NETWORK', '初始网络检查', networkInfo);
+            
+            if (!networkInfo.online) {
+                errorEl.textContent = '网络已断开，请检查网络连接后重试';
+                errorEl.classList.add('show');
+                debugLog('ERROR', '网络离线', null);
+                return;
+            }
+            
             if (!email || !password) {
                 errorEl.textContent = '请输入邮箱和密码';
                 errorEl.classList.add('show');
+                debugLog('ERROR', '输入验证失败', '空字段');
                 return;
             }
             
             if (password.length < 6) {
                 errorEl.textContent = '密码至少需要6位';
                 errorEl.classList.add('show');
+                debugLog('ERROR', '输入验证失败', '密码太短');
                 return;
             }
             
             submitBtn.disabled = true;
             submitBtn.textContent = isRegisterMode ? '注册中...' : '登录中...';
             
-            // 超时处理 - 15秒
-            var timeoutMs = 15000;
-            var timeoutPromise = new Promise(function(resolve, reject) {
-                setTimeout(function() {
-                    reject(new Error('TIMEOUT'));
-                }, timeoutMs);
+            // 超时时间增加到30秒，重试最多3次
+            var timeoutMs = 30000;
+            var maxRetries = 3;
+            
+            debugLog('CONFIG', '认证配置', {
+                timeout: timeoutMs + 'ms',
+                maxRetries: maxRetries,
+                supabaseUrl: window.SUPABASE_URL
             });
             
             try {
                 if (isRegisterMode) {
-                    // 注册也添加超时保护
-                    var signUpResult = await Promise.race([
-                        supabaseClient.auth.signUp({
+                    debugLog('AUTH', '开始注册流程', null);
+                    
+                    var signUpResult = await authWithRetry(function() {
+                        return supabaseClient.auth.signUp({
                             email: email,
                             password: password
-                        }),
-                        timeoutPromise
-                    ]);
+                        });
+                    }, maxRetries, timeoutMs);
+                    
+                    debugLog('AUTH', '注册请求完成', {
+                        hasError: !!signUpResult.error,
+                        hasUser: !!signUpResult.data?.user
+                    });
                     
                     if (signUpResult.error) {
                         throw signUpResult.error;
@@ -3335,14 +3512,19 @@
                     showToast('注册成功！请查收验证邮件');
                     closeAuthModal();
                 } else {
-                    // 登录添加15秒超时
-                    var signInResult = await Promise.race([
-                        supabaseClient.auth.signInWithPassword({
+                    debugLog('AUTH', '开始登录流程', { email: email });
+                    
+                    var signInResult = await authWithRetry(function() {
+                        return supabaseClient.auth.signInWithPassword({
                             email: email,
                             password: password
-                        }),
-                        timeoutPromise
-                    ]);
+                        });
+                    }, maxRetries, timeoutMs);
+                    
+                    debugLog('AUTH', '登录请求完成', {
+                        hasError: !!signInResult.error,
+                        hasUser: !!signInResult.data?.user
+                    });
                     
                     if (signInResult.error) {
                         throw signInResult.error;
@@ -3356,10 +3538,25 @@
                     showToast('登录成功');
                     closeAuthModal();
                 }
+                
+                debugLog('SUCCESS', '=== 认证流程完成 ===', null);
             } catch (err) {
                 console.error('[Auth] Error:', err);
-                if (err.message === 'TIMEOUT') {
-                    errorEl.textContent = '登录超时，请检查网络';
+                debugLog('ERROR', '认证失败', {
+                    name: err.name,
+                    message: err.message,
+                    status: err.status || 'N/A',
+                    code: err.code || 'N/A'
+                });
+                
+                if (err.message && err.message.indexOf('TIMEOUT') === 0) {
+                    errorEl.innerHTML = '登录超时（30秒）<br><span style="font-size:12px;color:#666;">请检查网络后重试</span>';
+                } else if (err.message && err.message.indexOf('Failed to fetch') === 0) {
+                    errorEl.innerHTML = '网络连接失败<br><span style="font-size:12px;color:#666;">请检查网络或稍后重试</span>';
+                } else if (err.status === 400) {
+                    errorEl.textContent = '邮箱或密码错误';
+                } else if (err.status === 429) {
+                    errorEl.textContent = '请求过于频繁，请稍后再试';
                 } else {
                     errorEl.textContent = err.message || '操作失败，请重试';
                 }
@@ -3367,6 +3564,7 @@
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.textContent = isRegisterMode ? '注册' : '登录';
+                debugLog('END', '=== 流程结束 ===', null);
             }
         }
         
