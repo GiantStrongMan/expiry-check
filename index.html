@@ -2272,6 +2272,8 @@
             await loadHouses();
             await syncLocalToCloud();
             renderHouseSelector();
+            // 加载主页邀请码
+            loadMainInviteCode();
         }
         
         // 更新认证 UI
@@ -2997,6 +2999,9 @@
         async function handleLogout() {
             try {
                 await supabaseClient.auth.signOut();
+                // 隐藏主页邀请码区域
+                var mainSection = document.getElementById('mainInviteSection');
+                if (mainSection) mainSection.classList.remove('show');
                 showToast('已退出登录');
             } catch (err) {
                 console.error('[Auth] Logout error:', err);
@@ -3117,6 +3122,8 @@
             var select = document.getElementById('houseSelect');
             currentHouseId = select.value;
             await syncFromCloud();
+            // 加载当前房子的邀请码
+            loadMainInviteCode();
         }
         
         // 数据同步
