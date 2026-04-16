@@ -8,7 +8,7 @@
     <meta name="format-detection" content="telephone=no">
     <title>过期了么 - 物品有效期管理</title>
     
-    <!-- 版本: 2026-04-14-v16-手机登录超时修复 -->
+    <!-- 版本: 2026-04-16-v17-百度OCR拍照识别商品名称和分类 -->
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- html5-qrcode 条码扫描库 -->
@@ -896,6 +896,102 @@
         .voice-btn.supported {
             color: var(--primary);
             border-color: var(--primary);
+        }
+        
+        /* OCR拍照按钮样式 */
+        .ocr-btn {
+            width: 44px;
+            height: 44px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            background: var(--card-bg);
+            cursor: pointer;
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            -webkit-box-pack: center;
+            -ms-flex-pack: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            color: var(--text-light);
+            -webkit-transition: all 0.2s ease;
+            transition: all 0.2s ease;
+            -webkit-flex-shrink: 0;
+            -ms-flex-negative: 0;
+            flex-shrink: 0;
+        }
+        
+        .ocr-btn:active {
+            -webkit-transform: scale(0.95);
+            -ms-transform: scale(0.95);
+            transform: scale(0.95);
+        }
+        
+        .ocr-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        
+        .ocr-btn.loading {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+        
+        /* OCR识别结果提示 */
+        .ocr-result {
+            display: none;
+            padding: 10px 12px;
+            background: linear-gradient(135deg, var(--safe-bg), #d1fae5);
+            border-radius: 10px;
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+            color: var(--primary-dark);
+            border-left: 4px solid var(--primary);
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .ocr-result.show { display: -webkit-box; display: -ms-flexbox; display: flex; }
+        
+        .ocr-result.error {
+            background: linear-gradient(135deg, var(--danger-bg), var(--danger-light));
+            border-left-color: var(--danger);
+            color: var(--danger-dark);
+        }
+        
+        .ocr-loading {
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: flex;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .ocr-spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--primary);
+            border-top-color: transparent;
+            border-radius: 50%;
+            -webkit-animation: spin 0.8s linear infinite;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { -webkit-transform: rotate(360deg); transform: rotate(360deg); }
+        }
+        
+        /* 隐藏的文件输入 */
+        #ocrImageInput {
+            display: none;
         }
         
         /* 语音识别中状态 */
@@ -1987,7 +2083,16 @@
                     <div class="input-with-voice">
                         <input type="text" id="itemName" required placeholder="请输入物品名称，或点击麦克风语音录入">
                         <button type="button" class="voice-btn" id="voiceBtn" onclick="toggleVoiceInput()" title="语音录入">🎤</button>
+                        <button type="button" class="ocr-btn" id="ocrBtn" onclick="handleImageCapture()" title="拍照识别">📷</button>
                     </div>
+                    <!-- OCR隐藏文件输入 -->
+                    <input type="file" id="ocrImageInput" accept="image/*" capture="environment" onchange="handleOCRImageSelect(this)">
+                </div>
+                
+                <!-- OCR识别结果提示 -->
+                <div class="ocr-result" id="ocrResult">
+                    <span id="ocrResultIcon"></span>
+                    <span id="ocrResultText"></span>
                 </div>
                 
                 <div class="form-row">
@@ -6154,6 +6259,437 @@
             deleteItem(contextMenuTargetId);
             hideContextMenu();
         }
+        
+        // ==================== 百度OCR集成 ====================
+        
+        // 百度OCR API配置
+        var BAIDU_API_KEY = '3hhDwfYsBTKcFMAQTIoN9vWd';
+        var BAIDU_SECRET_KEY = '9ag7pehr5coZRVg2bqQdU9q9gqiJKGGZ';
+        var BAIDU_OCR_URL = 'https://aip.baidubce.com/rest/2.0/ocr/v1/general_basic';
+        
+        // Access Token缓存（有效期30天）
+        var baiduAccessToken = null;
+        var baiduTokenExpiry = null;
+        
+        // OCR分类关键词配置
+        var ocrCategoryKeywords = {
+            skincare: ['面霜', '精华', '乳液', '洗面奶', '爽肤水', '眼霜', '面膜', '防晒', '护肤', '美容', '洁面', '水乳', '隔离', '妆前', '粉底', '口红', '唇膏', '唇釉', '眉笔', '眼影', '卸妆', '护手霜', '身体乳', '香水', '气垫', '遮瑕', '高光', '腮红'],
+            food: ['牛奶', '酸奶', '饮料', '零食', '饼干', '面包', '水果', '蔬菜', '肉', '蛋', '奶', '饮品', '咖啡', '茶', '薯片', '巧克力', '糖果', '坚果', '酸奶', '果汁', '矿泉水', '啤酒', '白酒', '红酒', '酱油', '醋', '盐', '糖', '味精', '鸡精', '调料', '火锅', '烧烤', '炸鸡', '汉堡', '披萨', '意面', '方便面', '八宝粥', '罐头', '腊肉', '香肠', '火腿'],
+            daily: ['洗衣液', '纸巾', '洗发水', '沐浴露', '牙膏', '牙刷', '洗洁精', '清洁', '洗衣粉', '柔顺剂', '护发素', '洗手液', '洗洁精', '油污净', '洁厕灵', '84消毒液', '酒精', '湿巾', '纸巾', '卷纸', '抽纸', '卫生巾', '护垫', '尿不湿', '垃圾袋', '保鲜膜', '保鲜袋', '保鲜盒', '收纳盒', '收纳袋', '挂钩', '粘钩', '衣架', '晾衣架', '拖把', '扫把', '簸箕', '抹布', '钢丝球', '百洁布', '电池', '灯泡', '电线', '插座', '充电器', '数据线']
+        };
+        
+        // 获取百度Access Token
+        async function getBaiduAccessToken() {
+            // 检查缓存是否有效
+            if (baiduAccessToken && baiduTokenExpiry && new Date() < baiduTokenExpiry) {
+                return baiduAccessToken;
+            }
+            
+            try {
+                // 使用CORS代理获取token（避免跨域问题）
+                var tokenUrl = 'https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=' + 
+                              BAIDU_API_KEY + '&client_secret=' + BAIDU_SECRET_KEY;
+                
+                var response = await fetch(tokenUrl, {
+                    method: 'GET'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('获取Access Token失败');
+                }
+                
+                var data = await response.json();
+                
+                if (data.access_token) {
+                    baiduAccessToken = data.access_token;
+                    // 设置过期时间（提前5分钟）
+                    baiduTokenExpiry = new Date(Date.now() + (data.expires_in - 300) * 1000);
+                    console.log('[OCR] Access Token获取成功');
+                    return baiduAccessToken;
+                } else {
+                    throw new Error(data.error_description || '获取Access Token失败');
+                }
+            } catch (error) {
+                console.error('[OCR] 获取Access Token失败:', error);
+                throw error;
+            }
+        }
+        
+        // 处理拍照/选择图片按钮点击
+        function handleImageCapture() {
+            var ocrBtn = document.getElementById('ocrBtn');
+            var ocrImageInput = document.getElementById('ocrImageInput');
+            
+            // 检查是否支持相机
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                // 支持相机，显示文件选择（包含相机选项）
+                ocrImageInput.click();
+            } else {
+                // 不支持相机，提示用户
+                showToast('您的浏览器不支持拍照功能，请选择图片');
+                ocrImageInput.removeAttribute('capture');
+                ocrImageInput.click();
+            }
+        }
+        
+        // 处理OCR图片选择
+        async function handleOCRImageSelect(input) {
+            if (!input.files || !input.files[0]) {
+                return;
+            }
+            
+            var file = input.files[0];
+            
+            // 检查文件大小（限制5MB）
+            if (file.size > 5 * 1024 * 1024) {
+                showToast('图片过大，请选择小于5MB的图片');
+                input.value = '';
+                return;
+            }
+            
+            // 显示loading状态
+            showOCRLoading();
+            
+            try {
+                // 将图片转换为Base64
+                var base64 = await fileToBase64(file);
+                
+                // 调用OCR识别
+                var result = await recognizeImage(base64);
+                
+                // 解析识别结果并填充表单
+                parseAndFillProductInfo(result);
+                
+            } catch (error) {
+                console.error('[OCR] 识别失败:', error);
+                showOCRError(error.message || '识别失败，请手动填写');
+            }
+        }
+        
+        // 文件转Base64
+        function fileToBase64(file) {
+            return new Promise(function(resolve, reject) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    // 移除data:image/...;base64,前缀
+                    var base64 = e.target.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = function(error) {
+                    reject(error);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        // 调用百度OCR识别
+        async function recognizeImage(imageBase64) {
+            try {
+                // 获取access token
+                var accessToken = await getBaiduAccessToken();
+                
+                // 构建请求
+                var requestUrl = BAIDU_OCR_URL + '?access_token=' + accessToken;
+                
+                var formData = new FormData();
+                formData.append('image', imageBase64);
+                
+                var response = await fetch(requestUrl, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    throw new Error('OCR请求失败');
+                }
+                
+                var data = await response.json();
+                
+                if (data.error_code) {
+                    throw new Error(data.error_msg || 'OCR识别失败');
+                }
+                
+                return data;
+                
+            } catch (error) {
+                console.error('[OCR] 识别请求失败:', error);
+                throw error;
+            }
+        }
+        
+        // 显示OCR加载状态
+        function showOCRLoading() {
+            var ocrResult = document.getElementById('ocrResult');
+            var ocrBtn = document.getElementById('ocrBtn');
+            var ocrResultIcon = document.getElementById('ocrResultIcon');
+            var ocrResultText = document.getElementById('ocrResultText');
+            
+            ocrBtn.classList.add('loading');
+            ocrBtn.innerHTML = '<span class="ocr-spinner"></span>';
+            
+            ocrResult.classList.remove('error');
+            ocrResult.classList.add('show');
+            ocrResultIcon.innerHTML = '<span class="ocr-spinner"></span>';
+            ocrResultText.textContent = '正在识别中，请稍候...';
+        }
+        
+        // 显示OCR错误
+        function showOCRError(message) {
+            var ocrResult = document.getElementById('ocrResult');
+            var ocrBtn = document.getElementById('ocrBtn');
+            var ocrResultIcon = document.getElementById('ocrResultIcon');
+            var ocrResultText = document.getElementById('ocrResultText');
+            
+            resetOCRButton();
+            
+            ocrResult.classList.add('error');
+            ocrResult.classList.add('show');
+            ocrResultIcon.textContent = '❌';
+            ocrResultText.textContent = message;
+            
+            // 3秒后隐藏
+            setTimeout(function() {
+                ocrResult.classList.remove('show');
+            }, 3000);
+        }
+        
+        // 显示OCR成功
+        function showOCRSuccess(message) {
+            var ocrResult = document.getElementById('ocrResult');
+            var ocrResultIcon = document.getElementById('ocrResultIcon');
+            var ocrResultText = document.getElementById('ocrResultText');
+            
+            resetOCRButton();
+            
+            ocrResult.classList.remove('error');
+            ocrResult.classList.add('show');
+            ocrResultIcon.textContent = '✓';
+            ocrResultText.textContent = message;
+            
+            // 3秒后隐藏
+            setTimeout(function() {
+                ocrResult.classList.remove('show');
+            }, 3000);
+        }
+        
+        // 重置OCR按钮状态
+        function resetOCRButton() {
+            var ocrBtn = document.getElementById('ocrBtn');
+            ocrBtn.classList.remove('loading');
+            ocrBtn.innerHTML = '📷';
+        }
+        
+        // 解析OCR结果并填充表单
+        function parseAndFillProductInfo(ocrResult) {
+            try {
+                // 提取文字内容
+                var words = [];
+                if (ocrResult.words_result) {
+                    ocrResult.words_result.forEach(function(item) {
+                        if (item.words) {
+                            words.push(item.words);
+                        }
+                    });
+                }
+                
+                if (words.length === 0) {
+                    showOCRError('未识别到文字，请手动填写');
+                    return;
+                }
+                
+                // 合并所有文字
+                var fullText = words.join('');
+                console.log('[OCR] 识别文字:', fullText);
+                
+                // 提取商品名称（取最显著的文字）
+                var productName = extractProductName(words);
+                
+                // 判断分类
+                var guessedType = guessCategory(fullText);
+                
+                // 填充表单
+                var itemNameInput = document.getElementById('itemName');
+                var itemTypeSelect = document.getElementById('itemType');
+                
+                // 填充物品名称
+                if (productName) {
+                    itemNameInput.value = productName;
+                }
+                
+                // 填充分类
+                if (guessedType) {
+                    itemTypeSelect.value = guessedType;
+                    // 触发分类变化事件
+                    onTypeChange();
+                    
+                    // 尝试自动匹配具体分类
+                    setTimeout(function() {
+                        autoSelectCategory(fullText, guessedType);
+                    }, 100);
+                }
+                
+                // 显示成功信息
+                var typeNames = {
+                    'food': '🍎 食物',
+                    'daily': '🧴 日用品',
+                    'skincare': '💄 护肤品'
+                };
+                var typeName = guessedType ? typeNames[guessedType] || guessedType : '默认';
+                showOCRSuccess('✓ 识别成功，已自动填充名称和分类为"' + typeName + '"');
+                
+            } catch (error) {
+                console.error('[OCR] 解析结果失败:', error);
+                showOCRError('解析识别结果失败，请手动填写');
+            }
+        }
+        
+        // 提取商品名称
+        function extractProductName(words) {
+            if (!words || words.length === 0) return null;
+            
+            // 过滤掉太短和无意义的词
+            var validWords = words.filter(function(word) {
+                return word && word.length >= 2 && !isStopWord(word);
+            });
+            
+            if (validWords.length === 0) return null;
+            
+            // 策略1：找最长的词（通常是品牌+产品名）
+            var longest = validWords.reduce(function(a, b) {
+                return a.length > b.length ? a : b;
+            });
+            
+            // 策略2：如果有多个词，优先选择包含产品关键词的
+            var productKeywords = ['霜', '乳', '液', '水', '油', '膏', '露', '粉', '茶', '奶', '饮', '食', '饼', '糖', '果', '蔬', '肉', '鱼', '米', '面', '酱', '汁', '片', '袋', '盒', '瓶', '罐'];
+            
+            for (var i = 0; i < validWords.length; i++) {
+                var word = validWords[i];
+                // 检查是否包含产品关键词
+                if (productKeywords.some(function(k) { return word.indexOf(k) !== -1; })) {
+                    // 优先选择这个词
+                    return word;
+                }
+            }
+            
+            // 返回最长的词
+            return longest;
+        }
+        
+        // 判断是否为停用词
+        function isStopWord(word) {
+            var stopWords = ['生产', '日期', '保质', '期至', '有效期', '配料', '成分', '净含量', '规格', '型号', '条形码', '二维码', '产地', '制造商', '地址', '电话', '网址', '客服', '官网', '微信公众号', '扫码', '积分', '会员', '原价', '售价', '促销', '优惠', '满减', '打折'];
+            return stopWords.some(function(sw) { return word.indexOf(sw) !== -1; });
+        }
+        
+        // 根据文字内容判断分类
+        function guessCategory(text) {
+            if (!text) return null;
+            
+            var textLower = text;
+            
+            // 检查每个分类的关键词
+            var scores = {
+                'skincare': 0,
+                'food': 0,
+                'daily': 0
+            };
+            
+            // 护肤品关键词评分
+            ocrCategoryKeywords.skincare.forEach(function(keyword) {
+                if (text.indexOf(keyword) !== -1) {
+                    scores.skincare += keyword.length;
+                }
+            });
+            
+            // 食品关键词评分
+            ocrCategoryKeywords.food.forEach(function(keyword) {
+                if (text.indexOf(keyword) !== -1) {
+                    scores.food += keyword.length;
+                }
+            });
+            
+            // 日用品关键词评分
+            ocrCategoryKeywords.daily.forEach(function(keyword) {
+                if (text.indexOf(keyword) !== -1) {
+                    scores.daily += keyword.length;
+                }
+            });
+            
+            // 找出最高分的分类
+            var maxScore = 0;
+            var guessedType = null;
+            
+            for (var type in scores) {
+                if (scores[type] > maxScore) {
+                    maxScore = scores[type];
+                    guessedType = type;
+                }
+            }
+            
+            // 只有当分数超过阈值时才返回，否则返回null让用户手动选择
+            if (maxScore >= 2) {
+                console.log('[OCR] 分类判断:', scores, '->', guessedType);
+                return guessedType;
+            }
+            
+            return null;
+        }
+        
+        // 自动选择具体分类
+        function autoSelectCategory(text, type) {
+            if (!text || !type) return;
+            
+            var categorySelect = document.getElementById('itemCategory');
+            var options = categorySelect.options;
+            
+            // 获取该类型的所有分类
+            var categories = window.categories ? window.categories[type] : null;
+            if (!categories) return;
+            
+            // 遍历具体分类，找到匹配的
+            for (var i = 0; i < options.length; i++) {
+                var optionText = options[i].text;
+                var optionValue = options[i].value;
+                
+                // 检查是否包含分类关键词
+                for (var j = 0; j < categories.length; j++) {
+                    var cat = categories[j];
+                    if (text.indexOf(cat) !== -1) {
+                        categorySelect.value = cat;
+                        onCategoryChange();
+                        return;
+                    }
+                }
+                
+                // 检查分类名称中的关键词是否在文本中
+                for (var j = 0; j < categories.length; j++) {
+                    var cat = categories[j];
+                    // 逐字检查
+                    for (var k = 0; k < cat.length; k++) {
+                        var char = cat[k];
+                        if (text.indexOf(char) !== -1 && cat.indexOf(char) === k) {
+                            // 连续匹配
+                            var matchCount = 0;
+                            for (var m = k; m < cat.length && m < cat.length; m++) {
+                                if (text.indexOf(cat[m]) !== -1) {
+                                    matchCount++;
+                                } else {
+                                    break;
+                                }
+                            }
+                            // 如果匹配度超过60%
+                            if (matchCount / cat.length > 0.6) {
+                                categorySelect.value = cat;
+                                onCategoryChange();
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // ==================== 百度OCR集成结束 ====================
     </script>
 </body>
 </html>
